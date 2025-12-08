@@ -33,6 +33,8 @@ interface AppState {
 
     calculateMeetingZone: () => Promise<void>;
     findOptimalMeetingPoint: () => Promise<void>;
+
+    loadProject: (locations: Location[]) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -232,5 +234,16 @@ export const useStore = create<AppState>((set, get) => ({
         } finally {
             set({ isCalculating: false });
         }
+    },
+
+    loadProject: (newLocations) => {
+        set({
+            locations: newLocations,
+            isochrones: {},
+            meetingArea: null,
+            venues: [],
+            errorMsg: null,
+            isCalculating: false
+        });
     }
 }));

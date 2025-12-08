@@ -1,12 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
+import { PRESETS, Project } from "@/data/presets";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
     const [suggestions, setSuggestions] = useState<GeocodingFeature[]>([]);
+
+    // Project Management State
+    const [savedProjects, setSavedProjects] = useState<Project[]>([]);
+    const [projectName, setProjectName] = useState("");
+    const [showProjectControls, setShowProjectControls] = useState(false);
 
     const {
         locations,
@@ -17,8 +23,21 @@ export default function Sidebar() {
         venues,
         isCalculating,
         errorMsg,
-        calculateMeetingZone
+        calculateMeetingZone,
+        loadProject
     } = useStore();
+
+    // Load saved projects on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("mpf_projects");
+        if (saved) {
+            try {
+                setSavedProjects(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse saved projects", e);
+            }
+        }
+    }, []);
 
     const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -46,13 +65,109 @@ export default function Sidebar() {
         await calculateMeetingZone();
     };
 
+    const saveCurrentProject = () => {
+        if (!projectName.trim() || locations.length === 0) return;
+
+        const newProject: Project = {
+            id: crypto.randomUUID(),
+            name: projectName,
+            locations: locations.map(l => ({
+                id: l.id,
+                address: l.address,
+                coordinates: l.coordinates,
+                color: l.color
+            }))
+        };
+
+        const updated = [...savedProjects, newProject];
+        setSavedProjects(updated);
+        localStorage.setItem("mpf_projects", JSON.stringify(updated));
+        setProjectName("");
+        alert("Project saved!");
+    };
+
+    const loadSelectedProject = (projectId: string) => {
+        if (!projectId) return;
+
+        // Check presets first
+        const preset = PRESETS.find(p => p.id === projectId);
+        if (preset) {
+            loadProject(preset.locations);
+            // Auto-calc for convenience
+            setTimeout(() => calculateMeetingZone(), 500);
+            return;
+        }
+
+        // Check saved
+        const saved = savedProjects.find(p => p.id === projectId);
+        if (saved) {
+            loadProject(saved.locations);
+            setTimeout(() => calculateMeetingZone(), 500);
+        }
+    };
+
     return (
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
-            {/* Header */}
-            <div className="mb-4 border-b border-gray-800 pb-2">
-                <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                    Meeting Point Finder
-                </h2>
+            {/* Header / Project Bar */}
+            <div className="mb-6 border-b border-gray-800 pb-4">
+                <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                        Meeting Point Finder
+                    </h2>
+                    <button
+                        onClick={() => setShowProjectControls(!showProjectControls)}
+                        className="text-xs text-gray-500 hover:text-white transition-colors"
+                    >
+                        {showProjectControls ? "Hide" : "Projects"}
+                    </button>
+                </div>
+
+                {/* Project Controls */}
+                {showProjectControls && (
+                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3">
+                        {/* Load Project */}
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
+                            <select
+                                className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded p-2"
+                                onChange={(e) => loadSelectedProject(e.target.value)}
+                                defaultValue=""
+                            >
+                                <option value="" disabled>Select a project...</option>
+                                <optgroup label="Presets">
+                                    {PRESETS.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </optgroup>
+                                {savedProjects.length > 0 && (
+                                    <optgroup label="My Projects">
+                                        {savedProjects.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                            </select>
+                        </div>
+
+                        {/* Save Current */}
+                        <div className="flex space-x-2">
+                            <input
+                                type="text"
+                                placeholder="Project Name"
+                                className="flex-1 bg-gray-800 border-gray-700 text-white text-xs rounded px-2"
+                                value={projectName}
+                                onChange={(e) => setProjectName(e.target.value)}
+                            />
+                            <button
+                                onClick={saveCurrentProject}
+                                disabled={locations.length === 0 || !projectName}
+                                className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-6">
@@ -77,22 +192,10 @@ export default function Sidebar() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-md font-semibold text-gray-200">Starting Points</h3>
                         <button
-                            onClick={() => {
-                                // Clear existing
-                                locations.forEach(l => removeLocation(l.id));
-                                // Add Prague Test Data
-                                const demoLocs = [
-                                    { id: "1", address: "Stefanikova 265/24, Praha 5", coordinates: [14.4035, 50.0755] as [number, number], color: "#ff00ff" },
-                                    { id: "2", address: "Holeckova 153/113, Praha 5", coordinates: [14.3963, 50.0732] as [number, number], color: "#00ffff" },
-                                    { id: "3", address: "Nad lesnim divadlem 1353, Praha 4", coordinates: [14.4501, 50.0268] as [number, number], color: "#ffff00" }
-                                ];
-                                demoLocs.forEach(l => addLocation(l));
-                                // Trigger calc for demo
-                                setTimeout(() => calculateMeetingZone(), 500);
-                            }}
-                            className="text-xs text-purple-400 hover:text-purple-300 underline"
+                            onClick={() => locations.forEach(l => removeLocation(l.id))}
+                            className="text-xs text-red-400 hover:text-red-300 underline"
                         >
-                            Load Prague Demo
+                            Clear All
                         </button>
                     </div>
 
