@@ -14,6 +14,9 @@ export default function Sidebar() {
     const [projectName, setProjectName] = useState("");
     const [showProjectControls, setShowProjectControls] = useState(false);
 
+    // Debounce timer for slider
+    const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+
     const {
         locations,
         addLocation,
@@ -24,7 +27,10 @@ export default function Sidebar() {
         isCalculating,
         errorMsg,
         calculateMeetingZone,
-        loadProject
+        loadProject,
+        setHoveredLocationId,
+        activeProjectId,
+        setActiveProjectId
     } = useStore();
 
     // Load saved projects on mount
@@ -38,6 +44,21 @@ export default function Sidebar() {
             }
         }
     }, []);
+
+    // Auto-Calculate on Slider Change (Debounced)
+    useEffect(() => {
+        if (locations.length > 0) {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            const timer = setTimeout(() => {
+                calculateMeetingZone();
+            }, 800); // 800ms delay after sliding stops
+            setDebounceTimer(timer);
+        }
+        return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [maxTravelTime]); // Only trigger on time change, not locations (locations trigger their own logic maybe, or manual)
 
     const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -59,6 +80,9 @@ export default function Sidebar() {
         });
         setQuery("");
         setSuggestions([]);
+        // Reset active project since we modified state
+        // Actually, if we want to "Update", we should keep it active but mark dirty?
+        // For simplicity: modifying locations keeps ID but is "unsaved".
     };
 
     const handleCalculate = async () => {
@@ -71,6 +95,7 @@ export default function Sidebar() {
         const newProject: Project = {
             id: crypto.randomUUID(),
             name: projectName,
+            maxTravelTime: maxTravelTime,
             locations: locations.map(l => ({
                 id: l.id,
                 address: l.address,
@@ -82,8 +107,34 @@ export default function Sidebar() {
         const updated = [...savedProjects, newProject];
         setSavedProjects(updated);
         localStorage.setItem("mpf_projects", JSON.stringify(updated));
+
         setProjectName("");
+        setActiveProjectId(newProject.id); // Set as active
         alert("Project saved!");
+    };
+
+    const updateActiveProject = () => {
+        if (!activeProjectId) return;
+
+        const updatedProjects = savedProjects.map(p => {
+            if (p.id === activeProjectId) {
+                return {
+                    ...p,
+                    maxTravelTime: maxTravelTime,
+                    locations: locations.map(l => ({
+                        id: l.id,
+                        address: l.address,
+                        coordinates: l.coordinates,
+                        color: l.color
+                    }))
+                };
+            }
+            return p;
+        });
+
+        setSavedProjects(updatedProjects);
+        localStorage.setItem("mpf_projects", JSON.stringify(updatedProjects));
+        alert("Project updated!");
     };
 
     const loadSelectedProject = (projectId: string) => {
@@ -92,8 +143,9 @@ export default function Sidebar() {
         // Check presets first
         const preset = PRESETS.find(p => p.id === projectId);
         if (preset) {
-            loadProject(preset.locations);
-            // Auto-calc for convenience
+            // Presets don't need update logic really, they are read-only.
+            // So we pass null as ID to treat as "Untitled/New" based on preset.
+            loadProject(preset.locations, preset.maxTravelTime || 30, undefined);
             setTimeout(() => calculateMeetingZone(), 500);
             return;
         }
@@ -101,19 +153,28 @@ export default function Sidebar() {
         // Check saved
         const saved = savedProjects.find(p => p.id === projectId);
         if (saved) {
-            loadProject(saved.locations);
+            loadProject(saved.locations, saved.maxTravelTime || 30, saved.id);
             setTimeout(() => calculateMeetingZone(), 500);
         }
     };
+
+    const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name;
 
     return (
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
             {/* Header / Project Bar */}
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                        Meeting Point Finder
-                    </h2>
+                    <div>
+                        <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                            Meeting Point Finder
+                        </h2>
+                        {activeProjectName && (
+                            <span className="text-xs text-gray-400 block mt-1">
+                                Editing: <span className="text-purple-300">{activeProjectName}</span>
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={() => setShowProjectControls(!showProjectControls)}
                         className="text-xs text-gray-500 hover:text-white transition-colors"
@@ -124,7 +185,7 @@ export default function Sidebar() {
 
                 {/* Project Controls */}
                 {showProjectControls && (
-                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3">
+                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3 animate-in slide-in-from-top-2">
                         {/* Load Project */}
                         <div>
                             <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
@@ -149,11 +210,24 @@ export default function Sidebar() {
                             </select>
                         </div>
 
-                        {/* Save Current */}
+                        {/* Actions */}
+                        <div className="flex space-x-2 pt-2 border-t border-gray-700">
+                            {/* Update Existing */}
+                            {activeProjectId && (
+                                <button
+                                    onClick={updateActiveProject}
+                                    className="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-2 rounded"
+                                >
+                                    Update "{activeProjectName}"
+                                </button>
+                            )}
+
+                            {/* Save New */}
+                        </div>
                         <div className="flex space-x-2">
                             <input
                                 type="text"
-                                placeholder="Project Name"
+                                placeholder="New Project Name"
                                 className="flex-1 bg-gray-800 border-gray-700 text-white text-xs rounded px-2"
                                 value={projectName}
                                 onChange={(e) => setProjectName(e.target.value)}
@@ -163,7 +237,7 @@ export default function Sidebar() {
                                 disabled={locations.length === 0 || !projectName}
                                 className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50"
                             >
-                                Save
+                                Save New
                             </button>
                         </div>
                     </div>
@@ -185,6 +259,7 @@ export default function Sidebar() {
                         onChange={(e) => setMaxTravelTime(parseInt(e.target.value))}
                         className="w-full accent-purple-500 bg-gray-700 rounded-lg appearance-none h-2 cursor-pointer"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Auto-updates map...</p>
                 </div>
 
                 {/* Locations Section */}
@@ -192,7 +267,10 @@ export default function Sidebar() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-md font-semibold text-gray-200">Starting Points</h3>
                         <button
-                            onClick={() => locations.forEach(l => removeLocation(l.id))}
+                            onClick={() => {
+                                locations.forEach(l => removeLocation(l.id));
+                                setActiveProjectId(null); // Clear active project on clear
+                            }}
                             className="text-xs text-red-400 hover:text-red-300 underline"
                         >
                             Clear All
@@ -231,7 +309,9 @@ export default function Sidebar() {
                         {locations.map((loc) => (
                             <div
                                 key={loc.id}
-                                className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex items-center justify-between group"
+                                className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex items-center justify-between group transition-colors hover:bg-gray-800"
+                                onMouseEnter={() => setHoveredLocationId(loc.id)}
+                                onMouseLeave={() => setHoveredLocationId(null)}
                             >
                                 <div className="flex items-center space-x-3">
                                     <div
@@ -258,7 +338,7 @@ export default function Sidebar() {
                     {/* Calculate Buttons */}
                     <div className="flex space-x-2">
                         <button
-                            onClick={handleCalculate}
+                            onClick={() => calculateMeetingZone()}
                             disabled={isCalculating || locations.length === 0}
                             className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
                         >

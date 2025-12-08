@@ -1,170 +1,185 @@
 "use client";
 
+import React, { useRef, useEffect } from "react";
+import ReactMapGL, { Marker, NavigationControl, Source, Layer, FillLayer } from "react-map-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
-import Map, { NavigationControl, Marker, Source, Layer, MapRef, Popup } from "react-map-gl";
-import { useEffect, useRef, useState } from "react";
 import * as turf from "@turf/turf";
-// CSS moved to layout.tsx
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-const intersectionLayer = {
-    id: "intersection-layer",
-    type: "fill" as const,
-    paint: {
-        "fill-color": "#00ff9d", // Neon green for success/intersection
-        "fill-opacity": 0.6,
-        "fill-outline-color": "#ffffff",
-    },
-};
+export default function Map() {
+    const {
+        locations,
+        meetingArea,
+        addLocation,
+        isochrones,
+        addLocationByCoordinates,
+        hoveredLocationId
+    } = useStore();
 
-export default function AppMap() {
-    const { locations, isochrones, meetingArea, addLocationByCoordinates, updateLocationPosition, removeLocation } = useStore();
-    const mapRef = useRef<MapRef>(null);
+    // Auto-center map when locations/meeting area change
+    const mapRef = useRef<any>(null);
 
-    // Auto-center on Locations
     useEffect(() => {
-        if (!mapRef.current || locations.length === 0) return;
+        if (!mapRef.current) return;
 
-        // Calculate bounding box of all points
-        const points = turf.featureCollection(
-            locations.map(l => turf.point(l.coordinates))
-        );
-        const [minLng, minLat, maxLng, maxLat] = turf.bbox(points);
+        // Collect all features to bound
+        const features: any[] = [];
+        locations.forEach(l => {
+            features.push(turf.point(l.coordinates));
+        });
 
-        mapRef.current.fitBounds(
-            [
-                [minLng, minLat],
-                [maxLng, maxLat]
-            ],
-            {
-                padding: { top: 100, bottom: 100, left: 100, right: 450 }, // w-96 sidebar is ~384px
-                duration: 1000
+        if (meetingArea) {
+            features.push(turf.feature(meetingArea));
+        }
+
+        if (features.length > 0) {
+            const collection = turf.featureCollection(features);
+            const bbox = turf.bbox(collection);
+
+            // Validate bbox isn't a single point (minX=maxX, etc) to avoid errors
+            // If single point, flyTo center. If area, fitBounds.
+            const [minX, minY, maxX, maxY] = bbox;
+            if (minX === maxX && minY === maxY) {
+                mapRef.current.flyTo({ center: [minX, minY], zoom: 12 });
+            } else {
+                mapRef.current.fitBounds(
+                    [[minX, minY], [maxX, maxY]],
+                    { padding: 100, duration: 1000 }
+                );
             }
-        );
-    }, [locations]);
+        }
+    }, [locations, meetingArea]);
 
-    // Auto-center on Meeting Area
-    useEffect(() => {
-        if (!mapRef.current || !meetingArea) return;
+    const handleMapClick = async (e: any) => {
+        // Prevent click if clicking on a marker (handled by marker click)
+        if (e.originalEvent.defaultPrevented) return;
 
-        const [minLng, minLat, maxLng, maxLat] = turf.bbox(meetingArea);
-        mapRef.current.fitBounds(
-            [
-                [minLng, minLat],
-                [maxLng, maxLat]
+        const { lng, lat } = e.lngLat;
+        // console.log("Map clicked", lng, lat);
+        await addLocationByCoordinates(lng, lat);
+    };
+
+    // Prepare Isochrone Data Source
+    // We combine all individual isochrones into one FeatureCollection
+    const isochroneFeatures = Object.entries(isochrones).map(([id, poly]) => ({
+        type: "Feature",
+        geometry: poly,
+        properties: {
+            id,
+            color: locations.find((l) => l.id === id)?.color || "#888"
+        },
+    }));
+
+    const isochroneData = {
+        type: "FeatureCollection",
+        features: isochroneFeatures
+    };
+
+    // Style for isochrones with hover effect
+    const isochroneLayerStyle: FillLayer = {
+        id: "isochrone-layer",
+        type: "fill",
+        paint: {
+            "fill-color": ["get", "color"],
+            "fill-opacity": [
+                "case",
+                ["==", ["get", "id"], hoveredLocationId || ""],
+                0.5, // Highlight opacity
+                0.15 // Default opacity
             ],
-            {
-                padding: { top: 100, bottom: 100, left: 100, right: 500 }, // Extra padding for results view
-                duration: 1500
-            }
-        );
-    }, [meetingArea]);
-
-    console.log("Mapbox Token present:", !!MAPBOX_TOKEN);
-
-    if (!MAPBOX_TOKEN) {
-        return (
-            <div className="flex items-center justify-center h-screen w-screen bg-black text-white">
-                <div className="text-center">
-                    <h2 className="text-xl font-bold mb-2">Mapbox Token Missing</h2>
-                    <p className="text-gray-400">
-                        Please add NEXT_PUBLIC_MAPBOX_TOKEN to your .env.local file.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+            "fill-outline-color": [
+                "case",
+                ["==", ["get", "id"], hoveredLocationId || ""],
+                "#ffffff", // Highlight outline
+                ["get", "color"] // Default outline
+            ]
+        },
+    };
 
     return (
-        <div className="relative w-full h-screen">
-            <Map
+        <div className="w-full h-full relative">
+            <ReactMapGL
                 ref={mapRef}
                 initialViewState={{
-                    latitude: 40.7128,
-                    longitude: -74.006,
-                    zoom: 11,
+                    longitude: 14.4378,
+                    latitude: 50.0755, // Default to Prague
+                    zoom: 12,
                 }}
                 style={{ width: "100%", height: "100%" }}
                 mapStyle="mapbox://styles/mapbox/dark-v11"
                 mapboxAccessToken={MAPBOX_TOKEN}
-                onClick={(e) => {
-                    // Simple logic: add point.
-                    addLocationByCoordinates(e.lngLat.lng, e.lngLat.lat);
-                }}
+                onClick={handleMapClick}
             >
                 <NavigationControl position="top-left" />
 
-                {/* Individual Isochrones (Faint Glow) */}
-                {Object.entries(isochrones).map(([id, polygon]) => {
-                    const loc = locations.find((l) => l.id === id);
-                    return (
-                        <Source key={`iso-${id}`} type="geojson" data={polygon}>
-                            <Layer
-                                id={`layer-${id}`}
-                                type="fill"
-                                paint={{
-                                    "fill-color": loc?.color || "#555",
-                                    "fill-opacity": 0.15,
-                                    "fill-outline-color": loc?.color || "#555",
-                                }}
-                            />
-                        </Source>
-                    );
-                })}
+                {/* Combined Isochrone Layer */}
+                <Source id="isochrones" type="geojson" data={isochroneData as any}>
+                    <Layer {...isochroneLayerStyle} />
+                </Source>
 
-                {/* Meeting Area Intersection */}
+                {/* Meeting Area (Intersection) */}
                 {meetingArea && (
                     <Source id="meeting-area" type="geojson" data={meetingArea}>
-                        <Layer {...intersectionLayer} />
-                        {/* Add a glow effect outline */}
                         <Layer
-                            id="meeting-area-glow"
+                            id="meeting-area-layer"
+                            type="fill"
+                            paint={{
+                                "fill-color": "#00ff00",
+                                "fill-opacity": 0.5,
+                                "fill-outline-color": "#ffffff",
+                            }}
+                        />
+                        <Layer
+                            id="meeting-area-outline"
                             type="line"
                             paint={{
-                                "line-color": "#00ff9d",
-                                "line-width": 4,
-                                "line-blur": 4,
-                                "line-opacity": 0.8
+                                "line-color": "#ffffff",
+                                "line-width": 2,
                             }}
                         />
                     </Source>
                 )}
 
-                {/* User Markers */}
+                {/* Markers */}
                 {locations.map((loc) => (
                     <Marker
                         key={loc.id}
-                        latitude={loc.coordinates[1]}
                         longitude={loc.coordinates[0]}
-                        anchor="center"
-                        draggable={true}
-                        onDragEnd={(e) => {
-                            updateLocationPosition(loc.id, e.lngLat.lng, e.lngLat.lat);
-                        }}
+                        latitude={loc.coordinates[1]}
+                        anchor="bottom"
                         onClick={(e) => {
-                            // Prevent map click from triggering
-                            e.originalEvent.stopPropagation();
+                            e.originalEvent.preventDefault(); // Stop map click
+                            // No popup logic anymore
                         }}
                     >
-                        <div className="relative flex items-center justify-center group">
-                            {/* Pulsing effect */}
-                            <div
-                                className="absolute w-8 h-8 rounded-full opacity-50 animate-ping"
-                                style={{ backgroundColor: loc.color }}
-                            />
-                            <div
-                                className="w-4 h-4 rounded-full border-2 border-white shadow-lg z-10"
-                                style={{ backgroundColor: loc.color }}
-                            />
-                            {/* Tooltip on hover */}
-                            <div className="absolute bottom-full mb-2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-20 pointer-events-none transition-opacity">
+                        <div className="relative flex items-center justify-center group cursor-pointer">
+                            {/* Marker Pin */}
+                            <svg
+                                viewBox="0 0 24 24"
+                                width="32"
+                                height="32"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                fill={loc.color}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-white drop-shadow-lg transition-transform hover:scale-110"
+                            >
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" fill="white" />
+                            </svg>
+
+                            {/* Tooltip on Hover */}
+                            <div className="absolute bottom-full mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
                                 {loc.address}
                             </div>
                         </div>
                     </Marker>
                 ))}
-            </Map>
+
+            </ReactMapGL>
         </div>
     );
 }

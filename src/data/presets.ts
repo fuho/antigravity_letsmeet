@@ -1,6 +1,7 @@
 export interface Project {
     id: string;
     name: string;
+    maxTravelTime?: number;
     locations: {
         id: string;
         address: string;

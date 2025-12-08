@@ -34,7 +34,15 @@ interface AppState {
     calculateMeetingZone: () => Promise<void>;
     findOptimalMeetingPoint: () => Promise<void>;
 
-    loadProject: (locations: Location[]) => void;
+    loadProject: (locations: Location[], maxTime?: number, projectId?: string) => void;
+
+    // Hover State
+    hoveredLocationId: string | null;
+    setHoveredLocationId: (id: string | null) => void;
+
+    // Active Project State
+    activeProjectId: string | null;
+    setActiveProjectId: (id: string | null) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -45,10 +53,16 @@ export const useStore = create<AppState>((set, get) => ({
     venues: [],
     isCalculating: false,
     errorMsg: null,
+    hoveredLocationId: null,
+    activeProjectId: null,
 
-    addLocation: (loc) =>
-        set((state) => ({ locations: [...state.locations, loc] })),
+    setHoveredLocationId: (id) => set({ hoveredLocationId: id }),
+    setActiveProjectId: (id) => set({ activeProjectId: id }),
 
+    addLocation: (loc) => {
+        const { locations } = get();
+        set({ locations: [...locations, loc] });
+    },
     addLocationByCoordinates: async (lng, lat) => {
         const feature = await reverseGeocode(lng, lat);
         const address = feature ? feature.place_name : `${lng.toFixed(4)}, ${lat.toFixed(4)}`;
@@ -236,9 +250,11 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    loadProject: (newLocations) => {
+    loadProject: (newLocations, maxTime, projectId) => {
         set({
             locations: newLocations,
+            maxTravelTime: maxTime || 30, // Default to 30 if undefined
+            activeProjectId: projectId || null,
             isochrones: {},
             meetingArea: null,
             venues: [],
