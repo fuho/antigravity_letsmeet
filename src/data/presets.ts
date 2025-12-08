@@ -13,7 +13,7 @@ export interface Project {
 export const PRESETS: Project[] = [
     {
         "id": "nyc-tiffanys",
-        "name": "Breakfast at Tiffany's (NYC)",
+        "name": "New York - The Great Gatsby",
         "maxTravelTime": 30,
         "locations": [
             {
@@ -55,8 +55,8 @@ export const PRESETS: Project[] = [
         ]
     },
     {
-        "id": "London-sherlock",
-        "name": "A Study in Scarlet (London)",
+        "id": "london-sherlock",
+        "name": "London - Sherlock Holmes",
         "maxTravelTime": 25,
         "locations": [
             {
@@ -99,7 +99,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "paris-lesmis",
-        "name": "Les Misérables (Paris)",
+        "name": "Paris - The Da Vinci Code",
         "maxTravelTime": 20,
         "locations": [
             {
@@ -142,7 +142,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "moscow-master",
-        "name": "The Master and Margarita (Moscow)",
+        "name": "Moscow - The Master and Margarita",
         "maxTravelTime": 35,
         "locations": [
             {
@@ -185,7 +185,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "prague-lightness",
-        "name": "The Unbearable Lightness of Being (Prague)",
+        "name": "Prague - Unbearable Lightness",
         "maxTravelTime": 15,
         "locations": [
             {
@@ -228,7 +228,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "tokyo-murakami",
-        "name": "Norwegian Wood (Tokyo)",
+        "name": "Tokyo - 1Q84",
         "maxTravelTime": 35,
         "locations": [
             {

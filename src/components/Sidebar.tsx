@@ -53,7 +53,9 @@ export default function Sidebar() {
         if (locations.length === 0) {
             const prague = PRESETS.find(p => p.id === "prague-lightness");
             if (prague) {
-                loadProject(prague.locations, prague.maxTravelTime || 15, undefined);
+                // Pass prague.id so it becomes the active project
+                loadProject(prague.locations, prague.maxTravelTime || 15, prague.id);
+
                 // We don't auto-calc immediately to let user see "Find Zone" action? 
                 // Or we do. User asked "load the Prague one by default". 
                 // Usually implies seeing the map ready.
@@ -162,8 +164,8 @@ export default function Sidebar() {
         const preset = PRESETS.find(p => p.id === projectId);
         if (preset) {
             // Presets don't need update logic really, they are read-only.
-            // So we pass null as ID to treat as "Untitled/New" based on preset.
-            loadProject(preset.locations, preset.maxTravelTime || 30, undefined);
+            // But we pass the ID so the dropdown reflects the selection.
+            loadProject(preset.locations, preset.maxTravelTime || 30, preset.id);
             setTimeout(() => calculateMeetingZone(), 500);
             return;
         }
@@ -203,9 +205,9 @@ export default function Sidebar() {
                         <select
                             className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded p-2"
                             onChange={(e) => loadSelectedProject(e.target.value)}
-                            defaultValue=""
+                            value={activeProjectId || ""}
                         >
-                            <option value="" disabled>Select a project...</option>
+                            <option value="">Select a project...</option>
                             <optgroup label="Presets">
                                 {PRESETS.map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -223,8 +225,8 @@ export default function Sidebar() {
 
                     {/* Actions */}
                     <div className="flex space-x-2 pt-2 border-t border-gray-700">
-                        {/* Update Existing */}
-                        {activeProjectId && (
+                        {/* Update Existing (Only for saved custom projects, not presets) */}
+                        {activeProjectId && savedProjects.some(p => p.id === activeProjectId) && (
                             <button
                                 onClick={updateActiveProject}
                                 className="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-2 rounded transition-colors"
