@@ -187,7 +187,7 @@ export default function Sidebar() {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                            Meeting Point Finder
+                            LetsMeet
                         </h2>
                         {activeProjectName && (
                             <span className="text-xs text-gray-400 block mt-1">
