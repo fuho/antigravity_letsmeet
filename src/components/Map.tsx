@@ -126,8 +126,8 @@ export default function Map() {
                             id="meeting-area-layer"
                             type="fill"
                             paint={{
-                                "fill-color": "#00ff00",
-                                "fill-opacity": 0.5,
+                                "fill-color": "#FFD700", // Gold/Amber
+                                "fill-opacity": 0.6,
                                 "fill-outline-color": "#ffffff",
                             }}
                         />
@@ -149,12 +149,19 @@ export default function Map() {
                         longitude={loc.coordinates[0]}
                         latitude={loc.coordinates[1]}
                         anchor="bottom"
+                        draggable={true}
+                        onDragEnd={(e) => {
+                            useStore.getState().updateLocationPosition(loc.id, e.lngLat.lng, e.lngLat.lat);
+                        }}
                         onClick={(e) => {
                             e.originalEvent.preventDefault(); // Stop map click
-                            // No popup logic anymore
                         }}
                     >
-                        <div className="relative flex items-center justify-center group cursor-pointer">
+                        <div
+                            className="relative flex items-center justify-center group cursor-pointer"
+                            onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
+                            onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
+                        >
                             {/* Marker Pin */}
                             <svg
                                 viewBox="0 0 24 24"
