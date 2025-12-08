@@ -14,6 +14,7 @@ export const PRESETS: Project[] = [
     {
         "id": "nyc-tiffanys",
         "name": "Breakfast at Tiffany's (NYC)",
+        "maxTravelTime": 30,
         "locations": [
             {
                 "id": "nyc-tiffanys-1",
@@ -54,8 +55,9 @@ export const PRESETS: Project[] = [
         ]
     },
     {
-        "id": "london-sherlock",
+        "id": "London-sherlock",
         "name": "A Study in Scarlet (London)",
+        "maxTravelTime": 25,
         "locations": [
             {
                 "id": "london-sherlock-1",
@@ -98,6 +100,7 @@ export const PRESETS: Project[] = [
     {
         "id": "paris-lesmis",
         "name": "Les Misérables (Paris)",
+        "maxTravelTime": 20,
         "locations": [
             {
                 "id": "paris-lesmis-1",
@@ -140,6 +143,7 @@ export const PRESETS: Project[] = [
     {
         "id": "moscow-master",
         "name": "The Master and Margarita (Moscow)",
+        "maxTravelTime": 35,
         "locations": [
             {
                 "id": "moscow-master-1",
@@ -163,8 +167,8 @@ export const PRESETS: Project[] = [
                 "id": "moscow-master-3",
                 "address": "Bersenevskaya Naberezhnaya, 20/2, Moscow, Russia, 119072",
                 "coordinates": [
-                    158.646954,
-                    53.025106
+                    37.6105,
+                    55.7415
                 ],
                 "color": "#ffff00"
             },
@@ -182,6 +186,7 @@ export const PRESETS: Project[] = [
     {
         "id": "prague-lightness",
         "name": "The Unbearable Lightness of Being (Prague)",
+        "maxTravelTime": 15,
         "locations": [
             {
                 "id": "prague-lightness-1",
@@ -224,6 +229,7 @@ export const PRESETS: Project[] = [
     {
         "id": "tokyo-murakami",
         "name": "Norwegian Wood (Tokyo)",
+        "maxTravelTime": 35,
         "locations": [
             {
                 "id": "tokyo-murakami-1",

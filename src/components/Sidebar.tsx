@@ -33,17 +33,35 @@ export default function Sidebar() {
         setActiveProjectId
     } = useStore();
 
-    // Load saved projects on mount
+    // Load saved projects on mount or default to Prague
     useEffect(() => {
         const saved = localStorage.getItem("mpf_projects");
+        let hasSaved = false;
         if (saved) {
             try {
-                setSavedProjects(JSON.parse(saved));
+                const parsed = JSON.parse(saved);
+                setSavedProjects(parsed);
+                hasSaved = parsed.length > 0;
             } catch (e) {
                 console.error("Failed to parse saved projects", e);
             }
         }
-    }, []);
+
+        // If no locations currently (app start) and we have presets, load Prague default
+        // We delay slightly to ensure store is ready? actually store init is sync usually.
+        // But to be safe and ensure "Locations: []" check is valid:
+        if (locations.length === 0) {
+            const prague = PRESETS.find(p => p.id === "prague-lightness");
+            if (prague) {
+                loadProject(prague.locations, prague.maxTravelTime || 15, undefined);
+                // We don't auto-calc immediately to let user see "Find Zone" action? 
+                // Or we do. User asked "load the Prague one by default". 
+                // Usually implies seeing the map ready.
+                setTimeout(() => calculateMeetingZone(), 800);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run once on mount
 
     // Auto-Calculate on Slider Change (Debounced)
     useEffect(() => {
@@ -164,7 +182,7 @@ export default function Sidebar() {
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
             {/* Header / Project Bar */}
             <div className="mb-6 border-b border-gray-800 pb-4">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
                             Meeting Point Finder
@@ -175,73 +193,63 @@ export default function Sidebar() {
                             </span>
                         )}
                     </div>
-                    <button
-                        onClick={() => setShowProjectControls(!showProjectControls)}
-                        className="text-xs text-gray-500 hover:text-white transition-colors"
-                    >
-                        {showProjectControls ? "Hide" : "Projects"}
-                    </button>
                 </div>
 
-                {/* Project Controls */}
-                {showProjectControls && (
-                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3 animate-in slide-in-from-top-2">
-                        {/* Load Project */}
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
-                            <select
-                                className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded p-2"
-                                onChange={(e) => loadSelectedProject(e.target.value)}
-                                defaultValue=""
-                            >
-                                <option value="" disabled>Select a project...</option>
-                                <optgroup label="Presets">
-                                    {PRESETS.map(p => (
+                {/* Project Controls (Always Visible) */}
+                <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3">
+                    {/* Load Project */}
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
+                        <select
+                            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded p-2"
+                            onChange={(e) => loadSelectedProject(e.target.value)}
+                            defaultValue=""
+                        >
+                            <option value="" disabled>Select a project...</option>
+                            <optgroup label="Presets">
+                                {PRESETS.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </optgroup>
+                            {savedProjects.length > 0 && (
+                                <optgroup label="My Projects">
+                                    {savedProjects.map(p => (
                                         <option key={p.id} value={p.id}>{p.name}</option>
                                     ))}
                                 </optgroup>
-                                {savedProjects.length > 0 && (
-                                    <optgroup label="My Projects">
-                                        {savedProjects.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </optgroup>
-                                )}
-                            </select>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex space-x-2 pt-2 border-t border-gray-700">
-                            {/* Update Existing */}
-                            {activeProjectId && (
-                                <button
-                                    onClick={updateActiveProject}
-                                    className="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-2 rounded"
-                                >
-                                    Update "{activeProjectName}"
-                                </button>
                             )}
-
-                            {/* Save New */}
-                        </div>
-                        <div className="flex space-x-2">
-                            <input
-                                type="text"
-                                placeholder="New Project Name"
-                                className="flex-1 bg-gray-800 border-gray-700 text-white text-xs rounded px-2"
-                                value={projectName}
-                                onChange={(e) => setProjectName(e.target.value)}
-                            />
-                            <button
-                                onClick={saveCurrentProject}
-                                disabled={locations.length === 0 || !projectName}
-                                className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50"
-                            >
-                                Save New
-                            </button>
-                        </div>
+                        </select>
                     </div>
-                )}
+
+                    {/* Actions */}
+                    <div className="flex space-x-2 pt-2 border-t border-gray-700">
+                        {/* Update Existing */}
+                        {activeProjectId && (
+                            <button
+                                onClick={updateActiveProject}
+                                className="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-2 rounded transition-colors"
+                            >
+                                Update "{activeProjectName}"
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex space-x-2">
+                        <input
+                            type="text"
+                            placeholder="New Project Name"
+                            className="flex-1 bg-gray-800 border-gray-700 text-white text-xs rounded px-2 focus:border-purple-500 focus:outline-none transition-colors"
+                            value={projectName}
+                            onChange={(e) => setProjectName(e.target.value)}
+                        />
+                        <button
+                            onClick={saveCurrentProject}
+                            disabled={locations.length === 0 || !projectName}
+                            className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50 transition-colors"
+                        >
+                            Save New
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-6">

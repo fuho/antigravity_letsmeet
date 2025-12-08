@@ -78,7 +78,8 @@ export default function Map() {
     };
 
     // Style for isochrones with hover effect
-    const isochroneLayerStyle: FillLayer = {
+
+    const isochroneLayerStyle: any = {
         id: "isochrone-layer",
         type: "fill",
         paint: {
@@ -111,6 +112,34 @@ export default function Map() {
                 mapStyle="mapbox://styles/mapbox/dark-v11"
                 mapboxAccessToken={MAPBOX_TOKEN}
                 onClick={handleMapClick}
+                onLoad={(e) => {
+                    const map = e.target;
+                    if (!map.hasImage('stripes')) {
+                        // Create a simple diagonal stripe pattern data URI (10x10 px)
+                        // This is a 10x10 white square with a black diagonal line, but used as mask or colored?
+                        // Actually, let's just make a colored one. Gold and transparent.
+                        const width = 10;
+                        const height = 10;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.fillStyle = 'rgba(255, 215, 0, 0.2)'; // Gold background (transparent)
+                            ctx.fillRect(0, 0, width, height);
+                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)'; // Strong Gold Line
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(0, height);
+                            ctx.lineTo(width, 0);
+                            ctx.stroke();
+                        }
+                        const imageData = ctx?.getImageData(0, 0, width, height);
+                        if (imageData) {
+                            map.addImage('stripes', imageData);
+                        }
+                    }
+                }}
             >
                 <NavigationControl position="top-left" />
 
@@ -122,21 +151,30 @@ export default function Map() {
                 {/* Meeting Area (Intersection) */}
                 {meetingArea && (
                     <Source id="meeting-area" type="geojson" data={meetingArea}>
+                        {/* Pattern Fill Layer */}
                         <Layer
                             id="meeting-area-layer"
                             type="fill"
                             paint={{
-                                "fill-color": "#FFD700", // Gold/Amber
-                                "fill-opacity": 0.6,
-                                "fill-outline-color": "#ffffff",
+                                "fill-pattern": "stripes",
+                                "fill-opacity": 1
+                            }}
+                        />
+                        {/* Solid Overlay for Tint */}
+                        <Layer
+                            id="meeting-area-tint"
+                            type="fill"
+                            paint={{
+                                "fill-color": "#FFD700",
+                                "fill-opacity": 0.2
                             }}
                         />
                         <Layer
                             id="meeting-area-outline"
                             type="line"
                             paint={{
-                                "line-color": "#ffffff",
-                                "line-width": 2,
+                                "line-color": "#FFD700", // Gold Outline
+                                "line-width": 3,
                             }}
                         />
                     </Source>
