@@ -5,6 +5,7 @@ import * as turf from "@turf/turf";
 
 interface Location {
     id: string;
+    name?: string;
     address: string;
     coordinates: [number, number];
     color: string;

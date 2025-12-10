@@ -118,6 +118,7 @@ export default function Sidebar() {
             maxTravelTime: maxTravelTime,
             locations: locations.map(l => ({
                 id: l.id,
+                name: l.name,
                 address: l.address,
                 coordinates: l.coordinates,
                 color: l.color
@@ -143,6 +144,7 @@ export default function Sidebar() {
                     maxTravelTime: maxTravelTime,
                     locations: locations.map(l => ({
                         id: l.id,
+                        name: l.name,
                         address: l.address,
                         coordinates: l.coordinates,
                         color: l.color
@@ -275,7 +277,7 @@ export default function Sidebar() {
                 {/* Locations Section */}
                 <div>
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-md font-semibold text-gray-200">Starting Points</h3>
+                        <h3 className="text-md font-semibold text-gray-200">Locations</h3>
                         <button
                             onClick={() => {
                                 locations.forEach(l => removeLocation(l.id));
@@ -329,9 +331,11 @@ export default function Sidebar() {
                                         style={{ backgroundColor: loc.color, boxShadow: `0 0 8px ${loc.color}` }}
                                     />
                                     <div>
-                                        <p className="text-sm font-medium text-white">{loc.address}</p>
-                                        <p className="text-xs text-gray-500">
-                                            {loc.coordinates[0].toFixed(4)}, {loc.coordinates[1].toFixed(4)}
+                                        {loc.name && (
+                                            <p className="text-sm font-bold text-white">{loc.name}</p>
+                                        )}
+                                        <p className={`text-sm ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}>
+                                            {loc.address}
                                         </p>
                                     </div>
                                 </div>
