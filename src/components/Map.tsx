@@ -230,6 +230,12 @@ export default function Map() {
 
                     const coords = dragPositions[loc.id] || loc.coordinates;
 
+                    // Remove country (last part after last comma) from address
+                    const formatAddress = (addr: string) => {
+                        const parts = addr.split(',');
+                        return parts.length > 1 ? parts.slice(0, -1).join(',') : addr;
+                    };
+
                     return (
                         <Popup
                             longitude={coords[0]}
@@ -265,7 +271,7 @@ export default function Map() {
                                         </div>
                                     )}
                                     <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
-                                        {loc.address}
+                                        {formatAddress(loc.address)}
                                     </div>
                                 </div>
                             </div>
