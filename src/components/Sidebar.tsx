@@ -191,6 +191,19 @@ export default function Sidebar() {
         }
     };
 
+    const handleShare = async () => {
+        const shareString = getShareString();
+        const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(shareString)}`;
+
+        try {
+            await navigator.clipboard.writeText(url);
+            alert("Shareable link copied to clipboard!");
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+            prompt("Copy this link:", url);
+        }
+    };
+
     const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name;
 
     // Inline Updating State
