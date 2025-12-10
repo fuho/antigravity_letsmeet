@@ -15,7 +15,8 @@ export default function Map() {
         addLocation,
         isochrones,
         addLocationByCoordinates,
-        hoveredLocationId
+        hoveredLocationId,
+        updateLocationPosition
     } = useStore();
 
     // Auto-center map when locations/meeting area change
@@ -52,25 +53,30 @@ export default function Map() {
         }
     }, [locations, meetingArea]);
 
+    // Track dragging state to prevent click conflict and manage drag positions
+    const isDraggingRef = useRef(false);
+    const [dragPositions, setDragPositions] = React.useState<Record<string, [number, number]>>({});
+
     const handleMapClick = async (e: any) => {
-        // Prevent click if clicking on a marker (handled by marker click)
-        if (e.originalEvent.defaultPrevented) return;
+        // Prevent click if dragging or if clicking on a marker (handled by marker click)
+        if (isDraggingRef.current || e.originalEvent.defaultPrevented) return;
 
         const { lng, lat } = e.lngLat;
-        // console.log("Map clicked", lng, lat);
         await addLocationByCoordinates(lng, lat);
     };
 
     // Prepare Isochrone Data Source
     // We combine all individual isochrones into one FeatureCollection
-    const isochroneFeatures = Object.entries(isochrones).map(([id, poly]) => ({
-        type: "Feature",
-        geometry: poly,
-        properties: {
-            id,
-            color: locations.find((l) => l.id === id)?.color || "#888"
-        },
-    }));
+    const isochroneFeatures = Object.entries(isochrones)
+        .filter(([_, poly]) => poly !== null) // Filter out nulls
+        .map(([id, poly]) => ({
+            type: "Feature",
+            geometry: poly,
+            properties: {
+                id,
+                color: locations.find((l) => l.id === id)?.color || "#888"
+            },
+        }));
 
     const isochroneData = {
         type: "FeatureCollection",
@@ -78,7 +84,6 @@ export default function Map() {
     };
 
     // Style for isochrones with hover effect
-
     const isochroneLayerStyle: any = {
         id: "isochrone-layer",
         type: "fill",
@@ -115,9 +120,6 @@ export default function Map() {
                 onLoad={(e) => {
                     const map = e.target;
                     if (!map.hasImage('stripes')) {
-                        // Create a simple diagonal stripe pattern data URI (10x10 px)
-                        // This is a 10x10 white square with a black diagonal line, but used as mask or colored?
-                        // Actually, let's just make a colored one. Gold and transparent.
                         const width = 10;
                         const height = 10;
                         const canvas = document.createElement('canvas');
@@ -125,9 +127,9 @@ export default function Map() {
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         if (ctx) {
-                            ctx.fillStyle = 'rgba(255, 215, 0, 0.2)'; // Gold background (transparent)
+                            ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
                             ctx.fillRect(0, 0, width, height);
-                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)'; // Strong Gold Line
+                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
                             ctx.lineWidth = 2;
                             ctx.beginPath();
                             ctx.moveTo(0, height);
@@ -151,7 +153,6 @@ export default function Map() {
                 {/* Meeting Area (Intersection) */}
                 {meetingArea && (
                     <Source id="meeting-area" type="geojson" data={meetingArea}>
-                        {/* Pattern Fill Layer */}
                         <Layer
                             id="meeting-area-layer"
                             type="fill"
@@ -160,7 +161,6 @@ export default function Map() {
                                 "fill-opacity": 1
                             }}
                         />
-                        {/* Solid Overlay for Tint */}
                         <Layer
                             id="meeting-area-tint"
                             type="fill"
@@ -173,7 +173,7 @@ export default function Map() {
                             id="meeting-area-outline"
                             type="line"
                             paint={{
-                                "line-color": "#FFD700", // Gold Outline
+                                "line-color": "#FFD700",
                                 "line-width": 3,
                             }}
                         />
@@ -181,48 +181,74 @@ export default function Map() {
                 )}
 
                 {/* Markers */}
-                {locations.map((loc) => (
-                    <Marker
-                        key={loc.id}
-                        longitude={loc.coordinates[0]}
-                        latitude={loc.coordinates[1]}
-                        anchor="bottom"
-                        draggable={true}
-                        onDragEnd={(e) => {
-                            useStore.getState().updateLocationPosition(loc.id, e.lngLat.lng, e.lngLat.lat);
-                        }}
-                        onClick={(e) => {
-                            e.originalEvent.preventDefault(); // Stop map click
-                        }}
-                    >
-                        <div
-                            className="relative flex items-center justify-center group cursor-pointer"
-                            onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
-                            onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
-                        >
-                            {/* Marker Pin */}
-                            <svg
-                                viewBox="0 0 24 24"
-                                width="32"
-                                height="32"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill={loc.color}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="text-white drop-shadow-lg transition-transform hover:scale-110"
-                            >
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                <circle cx="12" cy="10" r="3" fill="white" />
-                            </svg>
+                {locations.map((loc) => {
+                    // Use drag position if actively dragging, otherwise use store coordinates
+                    const position = dragPositions[loc.id] || loc.coordinates;
 
-                            {/* Tooltip on Hover */}
-                            <div className="absolute bottom-full mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
-                                {loc.address}
+                    return (
+                        <Marker
+                            key={loc.id}
+                            longitude={position[0]}
+                            latitude={position[1]}
+                            anchor="bottom"
+                            draggable={true}
+                            onDragStart={() => {
+                                isDraggingRef.current = true;
+                            }}
+                            onDrag={(e) => {
+                                // Update local drag position during drag
+                                setDragPositions(prev => ({
+                                    ...prev,
+                                    [loc.id]: [e.lngLat.lng, e.lngLat.lat]
+                                }));
+                            }}
+                            onDragEnd={(e) => {
+                                // Update store with final position first
+                                updateLocationPosition(loc.id, e.lngLat.lng, e.lngLat.lat);
+
+                                // Clear local drag position after a tick so store update propagates
+                                setTimeout(() => {
+                                    setDragPositions(prev => {
+                                        const updated = { ...prev };
+                                        delete updated[loc.id];
+                                        return updated;
+                                    });
+                                    isDraggingRef.current = false;
+                                }, 100);
+                            }}
+                            onClick={(e) => {
+                                e.originalEvent.stopPropagation();
+                            }}
+                        >
+                            <div
+                                className="relative flex items-center justify-center group cursor-pointer"
+                                onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
+                                onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
+                            >
+                                {/* Marker Pin */}
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="32"
+                                    height="32"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    fill={loc.color}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="text-white drop-shadow-lg transition-transform hover:scale-110"
+                                >
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" fill="white" />
+                                </svg>
+
+                                {/* Tooltip on Hover */}
+                                <div className="absolute bottom-full mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
+                                    {loc.address}
+                                </div>
                             </div>
-                        </div>
-                    </Marker>
-                ))}
+                        </Marker>
+                    );
+                })}
 
             </ReactMapGL>
         </div>

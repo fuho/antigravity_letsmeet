@@ -78,21 +78,38 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     updateLocationPosition: async (id, lng, lat) => {
-        const feature = await reverseGeocode(lng, lat);
+        // 1. Optimistic Update: Update coordinates immediately
+        set((state) => {
+            return {
+                locations: state.locations.map(l =>
+                    l.id === id
+                        ? { ...l, coordinates: [lng, lat] }
+                        : l
+                ),
+                // Clear old isochrone
+                isochrones: { ...state.isochrones, [id]: null as any }
+            };
+        });
 
-        set((state) => ({
-            locations: state.locations.map(l =>
-                l.id === id
-                    ? { ...l, coordinates: [lng, lat], address: feature ? feature.place_name : l.address }
-                    : l
-            ),
-            // Clear old isochrone for this ID as it is invalid now
-            isochrones: { ...state.isochrones, [id]: null as any }
-        }));
-
-        // If a meeting area exists, auto-recalculate
+        // If a meeting area exists, auto-recalculate immediately
         if (get().meetingArea) {
             get().calculateMeetingZone();
+        }
+
+        // 2. Async Reverse Geocoding
+        try {
+            const feature = await reverseGeocode(lng, lat);
+            if (feature) {
+                set((state) => ({
+                    locations: state.locations.map(l =>
+                        l.id === id
+                            ? { ...l, address: feature.place_name }
+                            : l
+                    )
+                }));
+            }
+        } catch (error) {
+            console.error("Failed to reverse geocode after drag", error);
         }
     },
 
