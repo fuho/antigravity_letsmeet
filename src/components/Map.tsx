@@ -16,7 +16,8 @@ export default function Map() {
         isochrones,
         addLocationByCoordinates,
         hoveredLocationId,
-        updateLocationPosition
+        updateLocationPosition,
+        removeLocation
     } = useStore();
 
     // Auto-center map when locations/meeting area change
@@ -236,17 +237,56 @@ export default function Map() {
                             closeButton={false}
                             closeOnClick={false}
                             anchor="bottom"
-                            offset={[0, -40]}
+                            offset={[0, -10]}
                             className="location-popup"
                         >
-                            <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-md p-2.5 shadow-lg min-w-[180px] max-w-[220px]">
-                                {loc.name && (
-                                    <div className="font-semibold text-white text-sm mb-1">
-                                        {loc.name}
+                            <div
+                                className="bg-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-md p-3 shadow-lg min-w-[200px] max-w-[240px] relative"
+                                onMouseEnter={() => setPopupLocationId(loc.id)}
+                                onMouseLeave={() => setPopupLocationId(null)}
+                            >
+                                {/* Marker pin embedded at top */}
+                                <div className="flex justify-center mb-2">
+                                    <div className="relative">
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            width="28"
+                                            height="28"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            fill={loc.color}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="text-white drop-shadow-lg"
+                                        >
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                            <circle cx="12" cy="10" r="3" fill="white" />
+                                        </svg>
                                     </div>
-                                )}
-                                <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
-                                    {loc.address}
+                                </div>
+
+                                {/* Remove button - top right */}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeLocation(loc.id);
+                                        setPopupLocationId(null);
+                                    }}
+                                    className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center"
+                                >
+                                    ×
+                                </button>
+
+                                {/* Location info */}
+                                <div className="text-center">
+                                    {loc.name && (
+                                        <div className="font-semibold text-white text-sm mb-1">
+                                            {loc.name}
+                                        </div>
+                                    )}
+                                    <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
+                                        {loc.address}
+                                    </div>
                                 </div>
                             </div>
                         </Popup>

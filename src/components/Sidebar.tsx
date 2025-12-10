@@ -324,14 +324,28 @@ export default function Sidebar() {
                             return (
                                 <div
                                     key={loc.id}
-                                    className={`p-3 rounded-lg border flex items-center justify-between group transition-all ${isHovered
+                                    className={`p-3 rounded-lg border transition-all relative ${isHovered
                                         ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
                                         : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
                                         }`}
-                                    onMouseEnter={() => setHoveredLocationId(loc.id)}
-                                    onMouseLeave={() => setHoveredLocationId(null)}
+                                    onMouseEnter={() => {
+                                        setHoveredLocationId(loc.id);
+                                        useStore.getState().setHoveredLocationId(loc.id);
+                                    }}
+                                    onMouseLeave={() => {
+                                        setHoveredLocationId(null);
+                                        useStore.getState().setHoveredLocationId(null);
+                                    }}
                                 >
-                                    <div className="flex items-center space-x-3">
+                                    {/* Remove button - top right corner */}
+                                    <button
+                                        onClick={() => removeLocation(loc.id)}
+                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center"
+                                    >
+                                        ×
+                                    </button>
+
+                                    <div className="flex items-center space-x-3 pr-6">
                                         <div
                                             className="w-3 h-3 rounded-full shadow-[0_0_8px]"
                                             style={{ backgroundColor: loc.color, boxShadow: `0 0 8px ${loc.color}` }}
@@ -345,12 +359,6 @@ export default function Sidebar() {
                                             </p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => removeLocation(loc.id)}
-                                        className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        ×
-                                    </button>
                                 </div>
                             );
                         })}
