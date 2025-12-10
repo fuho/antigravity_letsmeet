@@ -28,6 +28,7 @@ export default function Sidebar() {
         errorMsg,
         calculateMeetingZone,
         loadProject,
+        hoveredLocationId,
         setHoveredLocationId,
         activeProjectId,
         setActiveProjectId
@@ -318,96 +319,103 @@ export default function Sidebar() {
                         {locations.length === 0 && (
                             <p className="text-sm text-gray-500 italic">No locations added yet.</p>
                         )}
-                        {locations.map((loc) => (
-                            <div
-                                key={loc.id}
-                                className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 flex items-center justify-between group transition-colors hover:bg-gray-800"
-                                onMouseEnter={() => setHoveredLocationId(loc.id)}
-                                onMouseLeave={() => setHoveredLocationId(null)}
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <div
-                                        className="w-3 h-3 rounded-full shadow-[0_0_8px]"
-                                        style={{ backgroundColor: loc.color, boxShadow: `0 0 8px ${loc.color}` }}
-                                    />
-                                    <div>
-                                        {loc.name && (
-                                            <p className="text-sm font-bold text-white">{loc.name}</p>
-                                        )}
-                                        <p className={`text-sm ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}>
-                                            {loc.address}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => removeLocation(loc.id)}
-                                    className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                        {locations.map((loc) => {
+                            const isHovered = hoveredLocationId === loc.id;
+                            return (
+                                <div
+                                    key={loc.id}
+                                    className={`p-3 rounded-lg border flex items-center justify-between group transition-all ${isHovered
+                                        ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
+                                        : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
+                                        }`}
+                                    onMouseEnter={() => setHoveredLocationId(loc.id)}
+                                    onMouseLeave={() => setHoveredLocationId(null)}
                                 >
-                                    ×
-                                </button>
+                                    <div className="flex items-center space-x-3">
+                                        <div
+                                            className="w-3 h-3 rounded-full shadow-[0_0_8px]"
+                                            style={{ backgroundColor: loc.color, boxShadow: `0 0 8px ${loc.color}` }}
+                                        />
+                                        <div>
+                                            {loc.name && (
+                                                <p className="text-sm font-bold text-white">{loc.name}</p>
+                                            )}
+                                            <p className={`text-sm ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}>
+                                                {loc.address}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => removeLocation(loc.id)}
+                                        className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Calculate Buttons */}
-                    <div className="flex space-x-2">
-                        <button
-                            onClick={() => calculateMeetingZone()}
-                            disabled={isCalculating || locations.length === 0}
-                            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                        >
-                            {isCalculating ? "..." : "Find Sweet Spot"}
-                        </button>
-                        <button
-                            onClick={() => useStore.getState().findOptimalMeetingPoint()}
-                            disabled={isCalculating || locations.length < 2}
-                            className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                        >
-                            {isCalculating ? "..." : "Auto-Optimize"}
-                        </button>
-                    </div>
-
-                    {errorMsg && (
-                        <p className="text-red-400 text-sm mt-2 text-center">{errorMsg}</p>
-                    )}
-
+                    );
+                        })}
                 </div>
 
-                {/* Results Section (Stacked) */}
-                {(venues.length > 0 || errorMsg) && (
-                    <div className="pt-6 border-t border-gray-800">
-                        <h3 className="text-xl font-bold mb-4 text-purple-400">Results</h3>
-                        {errorMsg ? (
-                            <p className="text-red-400">{errorMsg}</p>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg">
-                                    <h4 className="font-semibold text-white mb-2">Sweet Spot Found!</h4>
-                                    <p className="text-sm text-gray-400">
-                                        The highlighted golden area represents the optimal sweet spot reachable by all participants within {maxTravelTime} minutes (driving).
-                                    </p>
-                                </div>
+                {/* Calculate Buttons */}
+                <div className="flex space-x-2">
+                    <button
+                        onClick={() => calculateMeetingZone()}
+                        disabled={isCalculating || locations.length === 0}
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                    >
+                        {isCalculating ? "..." : "Find Sweet Spot"}
+                    </button>
+                    <button
+                        onClick={() => useStore.getState().findOptimalMeetingPoint()}
+                        disabled={isCalculating || locations.length < 2}
+                        className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                    >
+                        {isCalculating ? "..." : "Auto-Optimize"}
+                    </button>
+                </div>
 
-                                <div>
-                                    <h4 className="font-semibold text-white mb-2">Suggested Meeting Sites</h4>
-                                    {venues.length === 0 ? (
-                                        <p className="text-sm text-gray-500">Searching for cafes...</p>
-                                    ) : (
-                                        <ul className="space-y-2">
-                                            {venues.map(venue => (
-                                                <li key={venue.id} className="bg-gray-800 p-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                                                    <div className="font-medium">{venue.text}</div>
-                                                    <div className="text-xs text-gray-500">{venue.place_name}</div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                {errorMsg && (
+                    <p className="text-red-400 text-sm mt-2 text-center">{errorMsg}</p>
                 )}
+
             </div>
+
+            {/* Results Section (Stacked) */}
+            {(venues.length > 0 || errorMsg) && (
+                <div className="pt-6 border-t border-gray-800">
+                    <h3 className="text-xl font-bold mb-4 text-purple-400">Results</h3>
+                    {errorMsg ? (
+                        <p className="text-red-400">{errorMsg}</p>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg">
+                                <h4 className="font-semibold text-white mb-2">Sweet Spot Found!</h4>
+                                <p className="text-sm text-gray-400">
+                                    The highlighted golden area represents the optimal sweet spot reachable by all participants within {maxTravelTime} minutes (driving).
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-white mb-2">Suggested Meeting Sites</h4>
+                                {venues.length === 0 ? (
+                                    <p className="text-sm text-gray-500">Searching for cafes...</p>
+                                ) : (
+                                    <ul className="space-y-2">
+                                        {venues.map(venue => (
+                                            <li key={venue.id} className="bg-gray-800 p-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                                                <div className="font-medium">{venue.text}</div>
+                                                <div className="text-xs text-gray-500">{venue.place_name}</div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
+        </div >
     );
 }

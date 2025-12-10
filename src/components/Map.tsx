@@ -239,13 +239,13 @@ export default function Map() {
                             offset={[0, -40]}
                             className="location-popup"
                         >
-                            <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-3 shadow-xl min-w-[200px]">
+                            <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-md p-2.5 shadow-lg min-w-[180px] max-w-[220px]">
                                 {loc.name && (
-                                    <div className="font-bold text-white text-sm mb-1">
+                                    <div className="font-semibold text-white text-sm mb-1">
                                         {loc.name}
                                     </div>
                                 )}
-                                <div className={`text-xs ${loc.name ? 'text-gray-400' : 'text-white font-medium'}`}>
+                                <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
                                     {loc.address}
                                 </div>
                             </div>
