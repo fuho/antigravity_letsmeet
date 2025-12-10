@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
-import ReactMapGL, { Marker, NavigationControl, Source, Layer, FillLayer } from "react-map-gl";
+import React, { useRef, useEffect, useState } from "react";
+import ReactMapGL, { Marker, NavigationControl, Source, Layer, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
@@ -56,6 +56,9 @@ export default function Map() {
     // Track dragging state to prevent click conflict and manage drag positions
     const isDraggingRef = useRef(false);
     const [dragPositions, setDragPositions] = React.useState<Record<string, [number, number]>>({});
+
+    // Track which popup is currently shown
+    const [popupLocationId, setPopupLocationId] = useState<string | null>(null);
 
     const handleMapClick = async (e: any) => {
         // Prevent click if dragging or if clicking on a marker (handled by marker click)
@@ -190,8 +193,14 @@ export default function Map() {
                         >
                             <div
                                 className="relative flex items-center justify-center group cursor-pointer"
-                                onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
-                                onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
+                                onMouseEnter={() => {
+                                    useStore.getState().setHoveredLocationId(loc.id);
+                                    setPopupLocationId(loc.id);
+                                }}
+                                onMouseLeave={() => {
+                                    useStore.getState().setHoveredLocationId(null);
+                                    setPopupLocationId(null);
+                                }}
                             >
                                 {/* Marker Pin */}
                                 <svg
@@ -208,15 +217,41 @@ export default function Map() {
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                     <circle cx="12" cy="10" r="3" fill="white" />
                                 </svg>
-
-                                {/* Tooltip on Hover */}
-                                <div className="absolute bottom-full mb-2 hidden group-hover:block whitespace-nowrap bg-black text-white text-xs px-2 py-1 rounded shadow-lg z-50">
-                                    {loc.address}
-                                </div>
                             </div>
                         </Marker>
                     );
                 })}
+
+                {/* Popup for hovered location */}
+                {popupLocationId && (() => {
+                    const loc = locations.find(l => l.id === popupLocationId);
+                    if (!loc) return null;
+
+                    const coords = dragPositions[loc.id] || loc.coordinates;
+
+                    return (
+                        <Popup
+                            longitude={coords[0]}
+                            latitude={coords[1]}
+                            closeButton={false}
+                            closeOnClick={false}
+                            anchor="bottom"
+                            offset={[0, -40]}
+                            className="location-popup"
+                        >
+                            <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-3 shadow-xl min-w-[200px]">
+                                {loc.name && (
+                                    <div className="font-bold text-white text-sm mb-1">
+                                        {loc.name}
+                                    </div>
+                                )}
+                                <div className={`text-xs ${loc.name ? 'text-gray-400' : 'text-white font-medium'}`}>
+                                    {loc.address}
+                                </div>
+                            </div>
+                        </Popup>
+                    );
+                })()}
 
             </ReactMapGL>
         </div>

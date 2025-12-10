@@ -26,6 +26,7 @@ interface AppState {
     addLocation: (loc: Location) => void;
     addLocationByCoordinates: (lng: number, lat: number) => Promise<void>;
     updateLocationPosition: (id: string, lng: number, lat: number) => Promise<void>;
+    updateLocationNameAndAddress: (id: string, name?: string, address?: string) => void;
     removeLocation: (id: string) => void;
 
     setMaxTravelTime: (time: number) => void;
@@ -112,6 +113,16 @@ export const useStore = create<AppState>((set, get) => ({
         } catch (error) {
             console.error("Failed to reverse geocode after drag", error);
         }
+    },
+
+    updateLocationNameAndAddress: (id, name, address) => {
+        set((state) => ({
+            locations: state.locations.map(l =>
+                l.id === id
+                    ? { ...l, ...(name !== undefined && { name }), ...(address !== undefined && { address }) }
+                    : l
+            )
+        }));
     },
 
     removeLocation: (id) =>
