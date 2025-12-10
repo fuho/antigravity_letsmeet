@@ -340,7 +340,7 @@ export default function Sidebar() {
                                     {/* Remove button - top right corner */}
                                     <button
                                         onClick={() => removeLocation(loc.id)}
-                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center"
+                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center focus:outline-none"
                                     >
                                         ×
                                     </button>

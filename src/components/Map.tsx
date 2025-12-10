@@ -258,7 +258,7 @@ export default function Map() {
                                         removeLocation(loc.id);
                                         setPopupLocationId(null);
                                     }}
-                                    className="absolute top-1 right-1 text-gray-500 hover:text-red-400 transition-colors text-xl leading-none p-1"
+                                    className="absolute top-1 right-1 text-gray-500 hover:text-red-400 transition-colors text-xl leading-none p-1 focus:outline-none"
                                 >
                                     ×
                                 </button>
