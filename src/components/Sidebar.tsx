@@ -346,10 +346,15 @@ export default function Sidebar() {
                                     </button>
 
                                     <div className="flex items-center space-x-3 pr-6">
-                                        <div
-                                            className="w-3 h-3 rounded-full shadow-[0_0_8px]"
-                                            style={{ backgroundColor: loc.color, boxShadow: `0 0 8px ${loc.color}` }}
-                                        />
+                                        <div className="flex-shrink-0">
+                                            <div
+                                                className="w-3 h-3 rounded-full"
+                                                style={{
+                                                    backgroundColor: loc.color,
+                                                    boxShadow: `0 0 8px ${loc.color}`
+                                                }}
+                                            />
+                                        </div>
                                         <div>
                                             {loc.name && (
                                                 <p className="text-sm font-bold text-white">{loc.name}</p>

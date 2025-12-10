@@ -237,7 +237,7 @@ export default function Map() {
                             closeButton={false}
                             closeOnClick={false}
                             anchor="bottom"
-                            offset={[0, -10]}
+                            offset={[0, -35]}
                             className="location-popup"
                         >
                             <div
@@ -245,26 +245,6 @@ export default function Map() {
                                 onMouseEnter={() => setPopupLocationId(loc.id)}
                                 onMouseLeave={() => setPopupLocationId(null)}
                             >
-                                {/* Marker pin embedded at top */}
-                                <div className="flex justify-center mb-2">
-                                    <div className="relative">
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            width="28"
-                                            height="28"
-                                            stroke="currentColor"
-                                            strokeWidth="2"
-                                            fill={loc.color}
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            className="text-white drop-shadow-lg"
-                                        >
-                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                            <circle cx="12" cy="10" r="3" fill="white" />
-                                        </svg>
-                                    </div>
-                                </div>
-
                                 {/* Remove button - top right */}
                                 <button
                                     onClick={(e) => {
@@ -272,13 +252,13 @@ export default function Map() {
                                         removeLocation(loc.id);
                                         setPopupLocationId(null);
                                     }}
-                                    className="absolute top-2 right-2 text-gray-500 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center"
+                                    className="absolute top-1 right-1 text-gray-500 hover:text-red-400 transition-colors text-xl leading-none p-1"
                                 >
                                     ×
                                 </button>
 
                                 {/* Location info */}
-                                <div className="text-center">
+                                <div className="pr-4">
                                     {loc.name && (
                                         <div className="font-semibold text-white text-sm mb-1">
                                             {loc.name}
