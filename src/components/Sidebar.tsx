@@ -21,6 +21,7 @@ export default function Sidebar() {
         locations,
         addLocation,
         removeLocation,
+        updateLocationNameAndAddress,
         maxTravelTime,
         setMaxTravelTime,
         venues,
@@ -183,6 +184,72 @@ export default function Sidebar() {
 
     const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name;
 
+    // Inline Updating State
+    const [editingItem, setEditingItem] = useState<{ id: string; field: 'name' | 'address' } | null>(null);
+    const [editValue, setEditValue] = useState("");
+
+    // Delete Confirmation State
+    const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
+
+    const startEditing = (id: string, field: 'name' | 'address', currentValue: string) => {
+        setEditingItem({ id, field });
+        setEditValue(currentValue || "");
+    };
+
+    const saveEdit = () => {
+        if (editingItem) {
+            updateLocationNameAndAddress(
+                editingItem.id,
+                editingItem.field === 'name' ? editValue : undefined,
+                editingItem.field === 'address' ? editValue : undefined
+            );
+            setEditingItem(null);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            setEditingItem(null);
+        }
+    };
+
+    // Render Delete Confirmation Modal
+    const renderDeleteModal = () => {
+        if (!locationToDelete) return null;
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl max-w-sm w-full">
+                    <h3 className="text-lg font-bold text-white mb-2">Remove Location?</h3>
+                    <p className="text-gray-400 text-sm mb-6">
+                        Are you sure you want to remove this location from your project?
+                    </p>
+                    <div className="flex space-x-3">
+                        <button
+                            onClick={() => setLocationToDelete(null)}
+                            className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white font-medium hover:bg-gray-700 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => {
+                                removeLocation(locationToDelete);
+                                setLocationToDelete(null);
+                                setHoveredLocationId(null);
+                            }}
+                            className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-500 transition-colors"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+
+
     return (
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
             {/* Header / Project Bar */}
@@ -321,6 +388,9 @@ export default function Sidebar() {
                         )}
                         {locations.map((loc) => {
                             const isHovered = hoveredLocationId === loc.id;
+                            const isEditingName = editingItem?.id === loc.id && editingItem?.field === 'name';
+                            const isEditingAddress = editingItem?.id === loc.id && editingItem?.field === 'address';
+
                             return (
                                 <div
                                     key={loc.id}
@@ -329,18 +399,25 @@ export default function Sidebar() {
                                         : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
                                         }`}
                                     onMouseEnter={() => {
-                                        setHoveredLocationId(loc.id);
-                                        useStore.getState().setHoveredLocationId(loc.id);
+                                        if (!editingItem) {
+                                            setHoveredLocationId(loc.id);
+                                            useStore.getState().setHoveredLocationId(loc.id);
+                                        }
                                     }}
                                     onMouseLeave={() => {
-                                        setHoveredLocationId(null);
-                                        useStore.getState().setHoveredLocationId(null);
+                                        if (!editingItem) {
+                                            setHoveredLocationId(null);
+                                            useStore.getState().setHoveredLocationId(null);
+                                        }
                                     }}
                                 >
                                     {/* Remove button - top right corner */}
                                     <button
-                                        onClick={() => removeLocation(loc.id)}
-                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center focus:outline-none"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setLocationToDelete(loc.id);
+                                        }}
+                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center focus:outline-none z-10"
                                     >
                                         ×
                                     </button>
@@ -355,19 +432,54 @@ export default function Sidebar() {
                                                 }}
                                             />
                                         </div>
-                                        <div>
-                                            {loc.name && (
-                                                <p className="text-sm font-bold text-white">{loc.name}</p>
+                                        <div className="flex-1 min-w-0">
+                                            {/* Name Field */}
+                                            {isEditingName ? (
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={editValue}
+                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                    onBlur={saveEdit}
+                                                    onKeyDown={handleKeyDown}
+                                                    className="w-full bg-gray-950 text-white text-sm font-bold border border-purple-500 rounded px-1 py-0.5 focus:outline-none mb-1"
+                                                />
+                                            ) : (
+                                                <div
+                                                    onClick={() => startEditing(loc.id, 'name', loc.name || "")}
+                                                    className="text-sm font-bold text-white mb-0.5 cursor-text hover:text-purple-300 transition-colors min-h-[20px]"
+                                                >
+                                                    {loc.name || <span className="text-gray-600 italic font-normal">Add name...</span>}
+                                                </div>
                                             )}
-                                            <p className={`text-sm ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}>
-                                                {loc.address}
-                                            </p>
+
+                                            {/* Address Field */}
+                                            {isEditingAddress ? (
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={editValue}
+                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                    onBlur={saveEdit}
+                                                    onKeyDown={handleKeyDown}
+                                                    className="w-full bg-gray-950 text-gray-300 text-sm border border-purple-500 rounded px-1 py-0.5 focus:outline-none"
+                                                />
+                                            ) : (
+                                                <p
+                                                    onClick={() => startEditing(loc.id, 'address', loc.address)}
+                                                    className={`text-sm cursor-text hover:text-purple-300 transition-colors truncate ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}
+                                                    title={loc.address} // Show full address on hover
+                                                >
+                                                    {loc.address}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
+                    {renderDeleteModal()}
 
                     {/* Calculate Buttons */}
                     <div className="flex space-x-2">
