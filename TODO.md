@@ -21,7 +21,9 @@
   - [x] the location name should be in the popup
   - [x] there should be a simple way to remove the location
 - [ ] when clicking on the map (when the broser is not in focus, so the users is coming back to the app the first click should not create a new location in that case)
-- [ ] There needs to be a way to edit the location name and address
+- [x] There needs to be a way to edit the location name and address
+  - [x] Inline editing in sidebar
+  - [x] Delete confirmation dialog
 - [x] Starting points should be renamed to something more human readable, like "Locations"
 - [x] Locations should have an optional name, not just an address.
   - [x] this means you will have to find names for the locations from the books.
