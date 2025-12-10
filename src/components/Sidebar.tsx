@@ -32,11 +32,29 @@ export default function Sidebar() {
         hoveredLocationId,
         setHoveredLocationId,
         activeProjectId,
-        setActiveProjectId
+        setActiveProjectId,
+        getShareString,
+        importFromShareString
     } = useStore();
 
-    // Load saved projects on mount or default to Prague
+    // Check for share URL on mount
     useEffect(() => {
+        // 1. Check for share param
+        const params = new URLSearchParams(window.location.search);
+        const shareString = params.get('share');
+
+        if (shareString) {
+            const success = importFromShareString(shareString);
+            if (success) {
+                // Clear URL to clean up
+                window.history.replaceState({}, '', window.location.pathname);
+                // Auto calc after a moment
+                setTimeout(() => calculateMeetingZone(), 1000);
+                return; // Skip loading saved/presets if shared
+            }
+        }
+
+        // 2. Load saved projects
         const saved = localStorage.getItem("mpf_projects");
         let hasSaved = false;
         if (saved) {
@@ -49,18 +67,11 @@ export default function Sidebar() {
             }
         }
 
-        // If no locations currently (app start) and we have presets, load Prague default
-        // We delay slightly to ensure store is ready? actually store init is sync usually.
-        // But to be safe and ensure "Locations: []" check is valid:
+        // 3. Default to Prague if nothing loaded
         if (locations.length === 0) {
             const prague = PRESETS.find(p => p.id === "prague-lightness");
             if (prague) {
-                // Pass prague.id so it becomes the active project
                 loadProject(prague.locations, prague.maxTravelTime || 15, prague.id);
-
-                // We don't auto-calc immediately to let user see "Find Zone" action? 
-                // Or we do. User asked "load the Prague one by default". 
-                // Usually implies seeing the map ready.
                 setTimeout(() => calculateMeetingZone(), 800);
             }
         }
@@ -139,19 +150,17 @@ export default function Sidebar() {
     const updateActiveProject = () => {
         if (!activeProjectId) return;
 
+        const updatedLocations = locations.map(l => ({
+            id: l.id,
+            name: l.name,
+            address: l.address,
+            coordinates: l.coordinates,
+            color: l.color
+        }));
+
         const updatedProjects = savedProjects.map(p => {
             if (p.id === activeProjectId) {
-                return {
-                    ...p,
-                    maxTravelTime: maxTravelTime,
-                    locations: locations.map(l => ({
-                        id: l.id,
-                        name: l.name,
-                        address: l.address,
-                        coordinates: l.coordinates,
-                        color: l.color
-                    }))
-                };
+                return { ...p, locations: updatedLocations, maxTravelTime };
             }
             return p;
         });
@@ -256,9 +265,24 @@ export default function Sidebar() {
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                            LetsMeet
-                        </h2>
+                        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                            Let's Meet
+                        </h1>
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={handleShare}
+                                className="text-xs text-purple-400 hover:text-purple-300 font-bold transition-colors flex items-center"
+                                title="Copy link to clipboard"
+                            >
+                                SHARE
+                            </button>
+                            <button
+                                onClick={() => setShowProjectControls(!showProjectControls)}
+                                className="text-xs text-gray-400 hover:text-white transition-colors"
+                            >
+                                {showProjectControls ? "Close" : (activeProjectId ? "Options" : "Projects")}
+                            </button>
+                        </div>
                         {activeProjectName && (
                             <span className="text-xs text-gray-400 block mt-1">
                                 Editing: <span className="text-purple-300">{activeProjectName}</span>

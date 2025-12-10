@@ -45,6 +45,9 @@ interface AppState {
     // Active Project State
     activeProjectId: string | null;
     setActiveProjectId: (id: string | null) => void;
+    // Shareable Links
+    getShareString: () => string;
+    importFromShareString: (shareString: string) => boolean;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -60,6 +63,55 @@ export const useStore = create<AppState>((set, get) => ({
 
     setHoveredLocationId: (id) => set({ hoveredLocationId: id }),
     setActiveProjectId: (id) => set({ activeProjectId: id }),
+
+    getShareString: () => {
+        const { locations, maxTravelTime } = get();
+
+        // Compact schema
+        const data = {
+            v: 1, // version
+            t: maxTravelTime,
+            l: locations.map(loc => ({
+                c: loc.coordinates,
+                a: loc.address,
+                n: loc.name,
+                col: loc.color
+            }))
+        };
+
+        try {
+            const json = JSON.stringify(data);
+            return btoa(json);
+        } catch (e) {
+            console.error("Failed to generate share string", e);
+            return "";
+        }
+    },
+
+    importFromShareString: (shareString: string) => {
+        try {
+            const json = atob(shareString);
+            const data = JSON.parse(json);
+
+            if (data.v !== 1 || !Array.isArray(data.l)) {
+                return false;
+            }
+
+            const newLocations: Location[] = data.l.map((item: any) => ({
+                id: crypto.randomUUID(),
+                coordinates: item.c,
+                address: item.a,
+                name: item.n,
+                color: item.col || '#ffffff'
+            }));
+
+            get().loadProject(newLocations, data.t || 30, null);
+            return true;
+        } catch (e) {
+            console.error("Failed to parse share string", e);
+            return false;
+        }
+    },
 
     addLocation: (loc) => {
         const { locations } = get();
