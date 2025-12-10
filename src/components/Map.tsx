@@ -58,9 +58,6 @@ export default function Map() {
     const isDraggingRef = useRef(false);
     const [dragPositions, setDragPositions] = React.useState<Record<string, [number, number]>>({});
 
-    // Track which popup is currently shown
-    const [popupLocationId, setPopupLocationId] = useState<string | null>(null);
-
     const handleMapClick = async (e: any) => {
         // Prevent click if dragging or if clicking on a marker (handled by marker click)
         if (isDraggingRef.current || e.originalEvent.defaultPrevented) return;
@@ -196,11 +193,9 @@ export default function Map() {
                                 className="relative flex items-center justify-center group cursor-pointer"
                                 onMouseEnter={() => {
                                     useStore.getState().setHoveredLocationId(loc.id);
-                                    setPopupLocationId(loc.id);
                                 }}
                                 onMouseLeave={() => {
                                     useStore.getState().setHoveredLocationId(null);
-                                    setPopupLocationId(null);
                                 }}
                             >
                                 {/* Marker Pin */}
@@ -224,8 +219,8 @@ export default function Map() {
                 })}
 
                 {/* Popup for hovered location */}
-                {popupLocationId && (() => {
-                    const loc = locations.find(l => l.id === popupLocationId);
+                {hoveredLocationId && (() => {
+                    const loc = locations.find(l => l.id === hoveredLocationId);
                     if (!loc) return null;
 
                     const coords = dragPositions[loc.id] || loc.coordinates;
@@ -248,15 +243,15 @@ export default function Map() {
                         >
                             <div
                                 className="bg-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-md p-3 shadow-lg min-w-[200px] max-w-[240px] relative"
-                                onMouseEnter={() => setPopupLocationId(loc.id)}
-                                onMouseLeave={() => setPopupLocationId(null)}
+                                onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
+                                onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
                             >
                                 {/* Remove button - top right */}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         removeLocation(loc.id);
-                                        setPopupLocationId(null);
+                                        useStore.getState().setHoveredLocationId(null);
                                     }}
                                     className="absolute top-1 right-1 text-gray-500 hover:text-red-400 transition-colors text-xl leading-none p-1 focus:outline-none"
                                 >
