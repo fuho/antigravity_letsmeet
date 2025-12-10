@@ -352,7 +352,7 @@ export default function Sidebar() {
                             disabled={isCalculating || locations.length === 0}
                             className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
                         >
-                            {isCalculating ? "..." : "Find Zone"}
+                            {isCalculating ? "..." : "Find Sweet Spot"}
                         </button>
                         <button
                             onClick={() => useStore.getState().findOptimalMeetingPoint()}
@@ -378,9 +378,9 @@ export default function Sidebar() {
                         ) : (
                             <div className="space-y-4">
                                 <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg">
-                                    <h4 className="font-semibold text-white mb-2">Meeting Zone Found!</h4>
+                                    <h4 className="font-semibold text-white mb-2">Sweet Spot Found!</h4>
                                     <p className="text-sm text-gray-400">
-                                        The highlighted green area represents the optimal meeting zone reachable by all participants within {maxTravelTime} minutes (driving).
+                                        The highlighted golden area represents the optimal sweet spot reachable by all participants within {maxTravelTime} minutes (driving).
                                     </p>
                                 </div>
 
