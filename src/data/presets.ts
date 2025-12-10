@@ -13,7 +13,7 @@ export interface Project {
 export const PRESETS: Project[] = [
     {
         "id": "nyc-tiffanys",
-        "name": "New York - The Great Gatsby",
+        "name": "New York - Breakfast at Tiffany's",
         "maxTravelTime": 30,
         "locations": [
             {
@@ -56,7 +56,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "london-sherlock",
-        "name": "London - Sherlock Holmes",
+        "name": "London - The Hound of the Baskervilles",
         "maxTravelTime": 25,
         "locations": [
             {
@@ -99,7 +99,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "paris-lesmis",
-        "name": "Paris - The Da Vinci Code",
+        "name": "Paris - Les Misérables",
         "maxTravelTime": 20,
         "locations": [
             {
@@ -185,7 +185,7 @@ export const PRESETS: Project[] = [
     },
     {
         "id": "prague-lightness",
-        "name": "Prague - Unbearable Lightness",
+        "name": "Prague - The Unbearable Lightness of Being",
         "maxTravelTime": 15,
         "locations": [
             {
@@ -217,10 +217,10 @@ export const PRESETS: Project[] = [
             },
             {
                 "id": "prague-lightness-4",
-                "address": "Václavské nám., 110 00 Praha 1-Nové Město, Czechia",
+                "address": "Národní třída, 110 00 Praha 1, Czechia",
                 "coordinates": [
-                    14.422954,
-                    50.085837
+                    14.418889,
+                    50.081111
                 ],
                 "color": "#00ff00"
             }
@@ -251,10 +251,10 @@ export const PRESETS: Project[] = [
             },
             {
                 "id": "tokyo-murakami-3",
-                "address": "1-104 Totsukamachi, Shinjuku-ku, Tokyo 169-0071, Japan",
+                "address": "4 Chome Yoyogi, Shibuya City, Tokyo 151-0053, Japan",
                 "coordinates": [
-                    139.70348,
-                    35.693142
+                    139.702042,
+                    35.683458
                 ],
                 "color": "#ffff00"
             },
@@ -264,6 +264,178 @@ export const PRESETS: Project[] = [
                 "coordinates": [
                     139.56422,
                     35.712654
+                ],
+                "color": "#00ff00"
+            }
+        ]
+    },
+    {
+        "id": "dublin-ulysses",
+        "name": "Dublin - Ulysses",
+        "maxTravelTime": 20,
+        "locations": [
+            {
+                "id": "dublin-ulysses-1",
+                "address": "7 Eccles St, Dublin 7, Ireland",
+                "coordinates": [
+                    -6.265778,
+                    53.356389
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "dublin-ulysses-2",
+                "address": "Sweny's Pharmacy, 1 Lincoln Pl, Dublin 2, Ireland",
+                "coordinates": [
+                    -6.246944,
+                    53.343333
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "dublin-ulysses-3",
+                "address": "Davy Byrne's, 21 Duke St, Dublin 2, Ireland",
+                "coordinates": [
+                    -6.257778,
+                    53.342222
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "dublin-ulysses-4",
+                "address": "Sandymount Strand, Dublin 4, Ireland",
+                "coordinates": [
+                    -6.208889,
+                    53.329167
+                ],
+                "color": "#00ff00"
+            }
+        ]
+    },
+    {
+        "id": "lisbon-disquiet",
+        "name": "Lisbon - The Book of Disquiet",
+        "maxTravelTime": 15,
+        "locations": [
+            {
+                "id": "lisbon-disquiet-1",
+                "address": "Rua dos Douradores, 1100-205 Lisboa, Portugal",
+                "coordinates": [
+                    -9.136111,
+                    38.711944
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "lisbon-disquiet-2",
+                "address": "Praça do Comércio, 1100-148 Lisboa, Portugal",
+                "coordinates": [
+                    -9.136944,
+                    38.707778
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "lisbon-disquiet-3",
+                "address": "Rossio, 1100-200 Lisboa, Portugal",
+                "coordinates": [
+                    -9.139167,
+                    38.713889
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "lisbon-disquiet-4",
+                "address": "Chiado, 1200-109 Lisboa, Portugal",
+                "coordinates": [
+                    -9.142222,
+                    38.710556
+                ],
+                "color": "#00ff00"
+            }
+        ]
+    },
+    {
+        "id": "istanbul-red",
+        "name": "Istanbul - My Name is Red",
+        "maxTravelTime": 30,
+        "locations": [
+            {
+                "id": "istanbul-red-1",
+                "address": "Sultanahmet Meydanı, 34122 Fatih/İstanbul, Turkey",
+                "coordinates": [
+                    28.976389,
+                    41.005833
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "istanbul-red-2",
+                "address": "Grand Bazaar, 34126 Fatih/İstanbul, Turkey",
+                "coordinates": [
+                    28.968056,
+                    41.010833
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "istanbul-red-3",
+                "address": "Topkapı Palace, 34122 Fatih/İstanbul, Turkey",
+                "coordinates": [
+                    28.983333,
+                    41.011667
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "istanbul-red-4",
+                "address": "Galata Tower, 34421 Beyoğlu/İstanbul, Turkey",
+                "coordinates": [
+                    28.974167,
+                    41.025833
+                ],
+                "color": "#00ff00"
+            }
+        ]
+    },
+    {
+        "id": "buenosaires-hopscotch",
+        "name": "Buenos Aires - Hopscotch",
+        "maxTravelTime": 25,
+        "locations": [
+            {
+                "id": "buenosaires-hopscotch-1",
+                "address": "Café Tortoni, Av. de Mayo 825, Buenos Aires, Argentina",
+                "coordinates": [
+                    -58.374167,
+                    -34.608889
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "buenosaires-hopscotch-2",
+                "address": "Plaza de Mayo, Buenos Aires, Argentina",
+                "coordinates": [
+                    -58.373056,
+                    -34.608333
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "buenosaires-hopscotch-3",
+                "address": "San Telmo, Buenos Aires, Argentina",
+                "coordinates": [
+                    -58.372222,
+                    -34.620556
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "buenosaires-hopscotch-4",
+                "address": "Recoleta Cemetery, Buenos Aires, Argentina",
+                "coordinates": [
+                    -58.393333,
+                    -34.587778
                 ],
                 "color": "#00ff00"
             }

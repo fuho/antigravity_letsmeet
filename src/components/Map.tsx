@@ -117,31 +117,6 @@ export default function Map() {
                 mapStyle="mapbox://styles/mapbox/dark-v11"
                 mapboxAccessToken={MAPBOX_TOKEN}
                 onClick={handleMapClick}
-                onLoad={(e) => {
-                    const map = e.target;
-                    if (!map.hasImage('stripes')) {
-                        const width = 10;
-                        const height = 10;
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
-                            ctx.fillRect(0, 0, width, height);
-                            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
-                            ctx.lineWidth = 2;
-                            ctx.beginPath();
-                            ctx.moveTo(0, height);
-                            ctx.lineTo(width, 0);
-                            ctx.stroke();
-                        }
-                        const imageData = ctx?.getImageData(0, 0, width, height);
-                        if (imageData) {
-                            map.addImage('stripes', imageData);
-                        }
-                    }
-                }}
             >
                 <NavigationControl position="top-left" />
 
@@ -150,23 +125,15 @@ export default function Map() {
                     <Layer {...isochroneLayerStyle} />
                 </Source>
 
-                {/* Meeting Area (Intersection) */}
+                {/* Sweet Spot (Overlap Area) */}
                 {meetingArea && (
                     <Source id="meeting-area" type="geojson" data={meetingArea}>
                         <Layer
-                            id="meeting-area-layer"
-                            type="fill"
-                            paint={{
-                                "fill-pattern": "stripes",
-                                "fill-opacity": 1
-                            }}
-                        />
-                        <Layer
-                            id="meeting-area-tint"
+                            id="meeting-area-fill"
                             type="fill"
                             paint={{
                                 "fill-color": "#FFD700",
-                                "fill-opacity": 0.2
+                                "fill-opacity": 0.08
                             }}
                         />
                         <Layer
@@ -174,7 +141,8 @@ export default function Map() {
                             type="line"
                             paint={{
                                 "line-color": "#FFD700",
-                                "line-width": 3,
+                                "line-width": 2,
+                                "line-dasharray": [3, 2]
                             }}
                         />
                     </Source>
