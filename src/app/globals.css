@@ -17,5 +17,16 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: sans-serif;
+  font-family: var(--font-geist-sans);
+}
+
+/* Custom Mapbox Popup Styles - Remove default white background */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.mapboxgl-popup-tip {
+  display: none !important;
 }
