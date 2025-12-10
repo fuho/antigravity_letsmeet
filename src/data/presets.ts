@@ -14,7 +14,7 @@ export const PRESETS: Project[] = [
     {
         "id": "nyc-tiffanys",
         "name": "New York - Breakfast at Tiffany's",
-        "maxTravelTime": 30,
+        "maxTravelTime": 10,
         "locations": [
             {
                 "id": "nyc-tiffanys-1",
@@ -57,7 +57,7 @@ export const PRESETS: Project[] = [
     {
         "id": "london-sherlock",
         "name": "London - The Hound of the Baskervilles",
-        "maxTravelTime": 25,
+        "maxTravelTime": 15,
         "locations": [
             {
                 "id": "london-sherlock-1",
@@ -100,7 +100,7 @@ export const PRESETS: Project[] = [
     {
         "id": "paris-lesmis",
         "name": "Paris - Les Misérables",
-        "maxTravelTime": 20,
+        "maxTravelTime": 15,
         "locations": [
             {
                 "id": "paris-lesmis-1",
@@ -143,7 +143,7 @@ export const PRESETS: Project[] = [
     {
         "id": "moscow-master",
         "name": "Moscow - The Master and Margarita",
-        "maxTravelTime": 35,
+        "maxTravelTime": 10,
         "locations": [
             {
                 "id": "moscow-master-1",
@@ -229,7 +229,7 @@ export const PRESETS: Project[] = [
     {
         "id": "tokyo-murakami",
         "name": "Tokyo - 1Q84",
-        "maxTravelTime": 35,
+        "maxTravelTime": 20,
         "locations": [
             {
                 "id": "tokyo-murakami-1",
@@ -272,7 +272,7 @@ export const PRESETS: Project[] = [
     {
         "id": "dublin-ulysses",
         "name": "Dublin - Ulysses",
-        "maxTravelTime": 20,
+        "maxTravelTime": 10,
         "locations": [
             {
                 "id": "dublin-ulysses-1",
@@ -315,7 +315,7 @@ export const PRESETS: Project[] = [
     {
         "id": "lisbon-disquiet",
         "name": "Lisbon - The Book of Disquiet",
-        "maxTravelTime": 15,
+        "maxTravelTime": 10,
         "locations": [
             {
                 "id": "lisbon-disquiet-1",
@@ -358,7 +358,7 @@ export const PRESETS: Project[] = [
     {
         "id": "istanbul-red",
         "name": "Istanbul - My Name is Red",
-        "maxTravelTime": 30,
+        "maxTravelTime": 10,
         "locations": [
             {
                 "id": "istanbul-red-1",
