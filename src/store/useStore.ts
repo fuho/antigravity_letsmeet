@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { GeocodingFeature, searchNearby, reverseGeocode } from "@/services/mapbox";
+import { DEFAULT_POI_TYPES } from "@/constants/poiTypes";
 import { getIsochrone } from "@/services/isochrone";
 import * as turf from "@turf/turf";
 
@@ -23,6 +24,10 @@ interface AppState {
     isCalculating: boolean;
     errorMsg: string | null;
 
+    // POI Type Selection
+    selectedPOITypes: string[];
+    setSelectedPOITypes: (types: string[]) => void;
+
     addLocation: (loc: Location) => void;
     addLocationByCoordinates: (lng: number, lat: number) => Promise<void>;
     updateLocationPosition: (id: string, lng: number, lat: number) => Promise<void>;
@@ -35,6 +40,7 @@ interface AppState {
 
     calculateMeetingZone: () => Promise<void>;
     findOptimalMeetingPoint: () => Promise<void>;
+    searchMultiplePOITypes: (types: string[], lng: number, lat: number, bbox?: [number, number, number, number]) => Promise<GeocodingFeature[]>;
 
     loadProject: (locations: Location[], maxTime?: number, projectId?: string) => void;
 
@@ -60,17 +66,20 @@ export const useStore = create<AppState>((set, get) => ({
     errorMsg: null,
     hoveredLocationId: null,
     activeProjectId: null,
+    selectedPOITypes: DEFAULT_POI_TYPES,
 
     setHoveredLocationId: (id) => set({ hoveredLocationId: id }),
     setActiveProjectId: (id) => set({ activeProjectId: id }),
+    setSelectedPOITypes: (types) => set({ selectedPOITypes: types }),
 
     getShareString: () => {
-        const { locations, maxTravelTime } = get();
+        const { locations, maxTravelTime, selectedPOITypes } = get();
 
         // Compact schema
         const data = {
             v: 1, // version
             t: maxTravelTime,
+            p: selectedPOITypes, // POI types
             l: locations.map(loc => ({
                 c: loc.coordinates,
                 a: loc.address,
@@ -120,7 +129,11 @@ export const useStore = create<AppState>((set, get) => ({
                 color: item.col || '#ffffff'
             }));
 
+            // Load POI types if present, otherwise use defaults
+            const poiTypes = data.p || get().selectedPOITypes;
+
             get().loadProject(newLocations, data.t || 30, undefined);
+            set({ selectedPOITypes: poiTypes });
             return true;
         } catch (e) {
             console.error("Failed to parse share string", e);
@@ -210,6 +223,32 @@ export const useStore = create<AppState>((set, get) => ({
 
     setMeetingArea: (area) => set({ meetingArea: area }),
 
+    // Helper function to search for multiple POI types
+    searchMultiplePOITypes: async (types: string[], lng: number, lat: number, bbox?: [number, number, number, number]): Promise<GeocodingFeature[]> => {
+        if (types.length === 0) return [];
+
+        const { POI_TYPES } = await import('@/constants/poiTypes');
+        const allPOIs: GeocodingFeature[] = [];
+        const seenIds = new Set<string>();
+
+        for (const typeId of types) {
+            const poiType = POI_TYPES.find(t => t.id === typeId);
+            if (!poiType) continue;
+
+            const results = await searchNearby(poiType.query, lng, lat, bbox);
+
+            // Filter duplicates by ID
+            for (const poi of results) {
+                if (!seenIds.has(poi.id)) {
+                    seenIds.add(poi.id);
+                    allPOIs.push(poi);
+                }
+            }
+        }
+
+        return allPOIs;
+    },
+
     calculateMeetingZone: async () => {
         const { locations, maxTravelTime, setIsochrone, setMeetingArea } = get();
 
@@ -252,10 +291,12 @@ export const useStore = create<AppState>((set, get) => ({
                     // @ts-ignore
                     setMeetingArea(intersection.geometry);
 
-                    // 3. Find POIs near centroid
+                    // 3. Find POIs near centroid, constrained to the sweet spot area
                     // @ts-ignore - Turf centroid returns Feature<Point>
                     const center = turf.centroid(intersection).geometry.coordinates; // [lng, lat]
-                    const pois = await searchNearby("cafe", center[0], center[1]);
+                    // Extract bounding box from the intersection polygon
+                    const bbox = turf.bbox(intersection) as [number, number, number, number];
+                    const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, center[0], center[1], bbox);
 
                     set({ venues: pois });
                 } else {
@@ -324,10 +365,11 @@ export const useStore = create<AppState>((set, get) => ({
                         });
                         set({ isochrones: newIsochrones });
 
-                        // Find POIs
+                        // Find POIs, constrained to the sweet spot area
                         // @ts-ignore
                         const center = turf.centroid(currentIntersection).geometry.coordinates;
-                        const pois = await searchNearby("cafe", center[0], center[1]);
+                        const bbox = turf.bbox(currentIntersection) as [number, number, number, number];
+                        const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, center[0], center[1], bbox);
                         set({ venues: pois });
 
                         set({ isCalculating: false });

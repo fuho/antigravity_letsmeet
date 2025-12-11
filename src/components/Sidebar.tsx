@@ -5,6 +5,7 @@ import { Share2, Copy, X, Check } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import { PRESETS, Project } from "@/data/presets";
+import { POI_TYPES } from "@/constants/poiTypes";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
@@ -35,7 +36,9 @@ export default function Sidebar() {
         activeProjectId,
         setActiveProjectId,
         getShareString,
-        importFromShareString
+        importFromShareString,
+        selectedPOITypes,
+        setSelectedPOITypes
     } = useStore();
 
     // Track if we're currently loading from URL to prevent sync loop
@@ -92,7 +95,7 @@ export default function Sidebar() {
             window.history.replaceState({}, '', newUrl);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locations, maxTravelTime]);
+    }, [locations, maxTravelTime, selectedPOITypes]);
 
     // Auto-Calculate on Slider Change (Debounced)
     useEffect(() => {
@@ -448,6 +451,42 @@ export default function Sidebar() {
             <div className="flex-1 overflow-y-auto space-y-6">
                 {/* Controls Section */}
                 <div>
+                    {/* POI Type Selector */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-400 mb-3">
+                            Meeting Venue Types
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {POI_TYPES.map((poiType) => {
+                                const isSelected = selectedPOITypes.includes(poiType.id);
+                                return (
+                                    <button
+                                        key={poiType.id}
+                                        onClick={() => {
+                                            if (isSelected) {
+                                                setSelectedPOITypes(selectedPOITypes.filter(id => id !== poiType.id));
+                                            } else {
+                                                setSelectedPOITypes([...selectedPOITypes, poiType.id]);
+                                            }
+                                        }}
+                                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all text-sm ${isSelected
+                                            ? 'bg-purple-600/20 border-purple-500 text-white'
+                                            : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                                            }`}
+                                    >
+                                        <span className="text-lg">{poiType.icon}</span>
+                                        <span className="font-medium">{poiType.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selectedPOITypes.length === 0 && (
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                                No venue types selected. Sweet Spot will be shown without POI suggestions.
+                            </p>
+                        )}
+                    </div>
+
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                         Max Travel Time: <span className="text-white">{maxTravelTime} min</span>
                     </label>

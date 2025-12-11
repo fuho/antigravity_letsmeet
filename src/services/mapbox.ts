@@ -24,17 +24,33 @@ export async function searchAddress(query: string): Promise<GeocodingFeature[]> 
     }
 }
 
-export async function searchNearby(query: string, lng: number, lat: number): Promise<GeocodingFeature[]> {
+export async function searchNearby(category: string, lng: number, lat: number, bbox?: [number, number, number, number]): Promise<GeocodingFeature[]> {
     if (!MAPBOX_TOKEN) return [];
-    // Use Geocoding API with proximity for POIs
-    const endpoint = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-        query
-    )}.json?access_token=${MAPBOX_TOKEN}&proximity=${lng},${lat}&types=poi&limit=10`;
+
+    // Use Search Box API for category-based POI search
+    // https://docs.mapbox.com/api/search/search-box/#category-search
+    let endpoint = `https://api.mapbox.com/search/searchbox/v1/category/${encodeURIComponent(
+        category
+    )}?access_token=${MAPBOX_TOKEN}&proximity=${lng},${lat}&limit=10&language=en`;
+
+    // Add bounding box if provided (helps constrain results to sweet spot area)
+    if (bbox) {
+        endpoint += `&bbox=${bbox.join(',')}`;
+    }
 
     try {
         const res = await fetch(endpoint);
         const data = await res.json();
-        return data.features || [];
+
+        // Transform Search Box API response to match our GeocodingFeature interface
+        const features: GeocodingFeature[] = (data.features || []).map((feature: any) => ({
+            id: feature.id || feature.properties?.mapbox_id || crypto.randomUUID(),
+            place_name: feature.properties?.full_address || feature.properties?.place_formatted || 'Unknown',
+            center: feature.geometry?.coordinates || [lng, lat],
+            text: feature.properties?.name || feature.properties?.name_preferred || category
+        }));
+
+        return features;
     } catch (error) {
         console.error("POI Search error:", error);
         return [];
