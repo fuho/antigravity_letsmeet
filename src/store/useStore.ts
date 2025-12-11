@@ -2,9 +2,13 @@ import { create } from "zustand";
 import { GeocodingFeature, searchNearby, reverseGeocode } from "@/services/mapbox";
 import { DEFAULT_POI_TYPES } from "@/constants/poiTypes";
 import { getIsochrone } from "@/services/isochrone";
-import * as turf from "@turf/turf";
+import { generateRandomColor } from "@/utils/formatting";
+import { calculateIntersection, getBoundingBox, getCentroid } from "@/utils/geometry";
+import { searchPOIsInArea } from "@/utils/poi";
+import { MAP_CONSTANTS, TRAVEL_TIME_OPTIONS } from "@/constants/map";
+import { TIMING_CONSTANTS } from "@/constants/timing";
 
-interface Location {
+export interface Location {
     id: string;
     name?: string;
     address: string;
@@ -158,10 +162,15 @@ export const useStore = create<AppState>((set, get) => ({
             id: crypto.randomUUID(),
             address,
             coordinates: [lng, lat],
-            color: "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')
+            color: generateRandomColor()
         };
 
         get().addLocation(newLoc);
+
+        // Auto-calculate meeting zone after adding location
+        setTimeout(() => {
+            get().calculateMeetingZone();
+        }, 500);
     },
 
     updateLocationPosition: async (id, lng, lat) => {
@@ -264,48 +273,23 @@ export const useStore = create<AppState>((set, get) => ({
             return;
         }
 
-        // Extract centroid and bbox from meeting area
-        // @ts-ignore
-        const center = turf.centroid(turf.feature(meetingArea)).geometry.coordinates;
-        const bbox = turf.bbox(turf.feature(meetingArea)) as [number, number, number, number];
+        const center = getCentroid(meetingArea);
+        const bbox = getBoundingBox(meetingArea);
+        const polygon = meetingArea as GeoJSON.Polygon;
 
-        // Multi-point search strategy: search from center + 4 quadrant centers
-        // This distributes POIs across the entire sweet spot area
-        const [minLng, minLat, maxLng, maxLat] = bbox;
+        // Use utility function to search POIs across the area
+        const searchFn = (lng: number, lat: number, bbox: [number, number, number, number]) =>
+            get().searchMultiplePOITypes(selectedPOITypes, lng, lat, bbox);
 
-        const searchPoints = [
-            center,                          // Center
-            [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],  // SW quadrant
-            [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],  // SE quadrant
-            [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],  // NW quadrant
-            [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],  // NE quadrant
-        ];
+        const pois = await searchPOIsInArea(
+            searchFn,
+            center,
+            bbox,
+            polygon,
+            MAP_CONSTANTS.MAX_POIS_DISPLAYED
+        );
 
-        // Search from all points and combine results
-        const allResults: GeocodingFeature[] = [];
-        for (const point of searchPoints) {
-            const pois = await get().searchMultiplePOITypes(selectedPOITypes, point[0], point[1], bbox);
-            allResults.push(...pois);
-        }
-
-        // Deduplicate by place_name and coordinates (same venue might appear in multiple searches)
-        const seen = new Set<string>();
-        const uniquePois = allResults.filter(poi => {
-            const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        // Filter to only include POIs within the actual sweet spot polygon
-        const filteredPois = uniquePois.filter(poi => {
-            const point = turf.point(poi.center);
-            // @ts-ignore
-            return turf.booleanPointInPolygon(point, turf.feature(meetingArea));
-        });
-
-        // Limit to reasonable number of POIs to avoid overcrowding
-        set({ venues: filteredPois.slice(0, 50) });
+        set({ venues: pois });
     },
 
     calculateMeetingZone: async () => {
@@ -323,71 +307,38 @@ export const useStore = create<AppState>((set, get) => ({
             const polygons: GeoJSON.Polygon[] = [];
 
             for (const loc of locations) {
-                // Fetch fresh isochrones based on current coords
                 const result = await getIsochrone(loc.coordinates, maxTravelTime, "driving");
                 if (result) {
-                    // result could be MultiPolygon if intervals were used, but here strict single
-                    // However, we cast to Polygon because simple request returns Polygon usually
-                    // Or we just handle feature geometry.
-                    // Safe assumption for 1 minute value => Polygon.
                     const poly = result as GeoJSON.Polygon;
                     setIsochrone(loc.id, poly);
                     polygons.push(poly);
                 }
             }
 
-            // 2. Calculate Intersection
+            // 2. Calculate Intersection using utility function
             if (polygons.length > 0) {
-                let intersection: GeoJSON.Feature<GeoJSON.Polygon | null> | null = turf.feature(polygons[0]);
+                const intersectionGeometry = calculateIntersection(polygons);
 
-                for (let i = 1; i < polygons.length; i++) {
-                    // @ts-ignore
-                    intersection = turf.intersect(turf.featureCollection([intersection, turf.feature(polygons[i])]));
-                    if (!intersection) break;
-                }
+                if (intersectionGeometry) {
+                    setMeetingArea(intersectionGeometry);
 
-                if (intersection && intersection.geometry) {
-                    // @ts-ignore
-                    setMeetingArea(intersection.geometry);
+                    // 3. Find POIs across the entire sweet spot area
+                    const center = getCentroid(intersectionGeometry);
+                    const bbox = getBoundingBox(intersectionGeometry);
 
-                    // 3. Find POIs across the entire sweet spot area using multi-point search
-                    // Type assertion: we've verified geometry exists above
-                    const validIntersection = intersection as GeoJSON.Feature<GeoJSON.Polygon>;
+                    // Use utility function to search POIs
+                    const searchFn = (lng: number, lat: number, bbox: [number, number, number, number]) =>
+                        get().searchMultiplePOITypes(get().selectedPOITypes, lng, lat, bbox);
 
-                    const center = turf.centroid(validIntersection).geometry.coordinates; // [lng, lat]
-                    // Extract bounding box from the intersection polygon
-                    const bbox = turf.bbox(validIntersection) as [number, number, number, number];
-
-                    // Multi-point search strategy
-                    const [minLng, minLat, maxLng, maxLat] = bbox;
-                    const searchPoints = [
+                    const pois = await searchPOIsInArea(
+                        searchFn,
                         center,
-                        [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
-                        [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
-                        [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
-                        [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
-                    ];
+                        bbox,
+                        intersectionGeometry,
+                        MAP_CONSTANTS.MAX_POIS_DISPLAYED
+                    );
 
-                    const allResults: GeocodingFeature[] = [];
-                    for (const point of searchPoints) {
-                        const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, point[0], point[1], bbox);
-                        allResults.push(...pois);
-                    }
-
-                    const seen = new Set<string>();
-                    const uniquePois = allResults.filter(poi => {
-                        const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
-                        if (seen.has(key)) return false;
-                        seen.add(key);
-                        return true;
-                    });
-
-                    const filteredPois = uniquePois.filter(poi => {
-                        const point = turf.point(poi.center);
-                        return turf.booleanPointInPolygon(point, validIntersection);
-                    });
-
-                    set({ venues: filteredPois.slice(0, 50) });
+                    set({ venues: pois });
                 } else {
                     set({ errorMsg: "No overlapping area found. Try increasing travel time." });
                 }
@@ -410,8 +361,8 @@ export const useStore = create<AppState>((set, get) => ({
 
         set({ isCalculating: true, errorMsg: null, meetingArea: null, venues: [] });
 
-        // Intervals to check: 5, 10, 15... 60
-        const times = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+        // Use TRAVEL_TIME_OPTIONS constant
+        const times = TRAVEL_TIME_OPTIONS;
 
         try {
             for (const t of times) {
@@ -430,68 +381,38 @@ export const useStore = create<AppState>((set, get) => ({
                 }
 
                 if (possible) {
-                    // Check intersection
-                    let intersection: GeoJSON.Feature<GeoJSON.Polygon | null> | null = turf.feature(polys[0]);
-                    let currentIntersection = turf.feature(polys[0]);
+                    // Use utility function to calculate intersection
+                    const intersectionGeometry = calculateIntersection(polys);
 
-                    for (let i = 1; i < polys.length; i++) {
-                        // @ts-ignore
-                        currentIntersection = turf.intersect(turf.featureCollection([currentIntersection, turf.feature(polys[i])]));
-                        if (!currentIntersection) break;
-                    }
-
-                    if (currentIntersection && currentIntersection.geometry) {
+                    if (intersectionGeometry) {
                         // FOUND MINIMUM TIME!
                         setMaxTravelTime(t);
-                        setMeetingArea(currentIntersection.geometry);
+                        setMeetingArea(intersectionGeometry);
                         set({ venues: [] }); // clear old
 
                         // Update isochrones on map to reflect this win
-                        // We need to set state isochrones for the map visualization
                         const newIsochrones: Record<string, GeoJSON.Polygon> = {};
                         locations.forEach((loc, index) => {
                             newIsochrones[loc.id] = polys[index];
                         });
                         set({ isochrones: newIsochrones });
 
-                        // Find POIs across the entire sweet spot area using multi-point search
-                        // Type assertion: currentIntersection is guaranteed to be non-null here
-                        const validIntersection = currentIntersection as GeoJSON.Feature<GeoJSON.Polygon>;
+                        // Find POIs using utility function
+                        const center = getCentroid(intersectionGeometry);
+                        const bbox = getBoundingBox(intersectionGeometry);
 
-                        const center = turf.centroid(validIntersection).geometry.coordinates;
-                        const bbox = turf.bbox(validIntersection) as [number, number, number, number];
+                        const searchFn = (lng: number, lat: number, bbox: [number, number, number, number]) =>
+                            get().searchMultiplePOITypes(get().selectedPOITypes, lng, lat, bbox);
 
-                        // Multi-point search strategy
-                        const [minLng, minLat, maxLng, maxLat] = bbox;
-                        const searchPoints = [
+                        const pois = await searchPOIsInArea(
+                            searchFn,
                             center,
-                            [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
-                            [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
-                            [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
-                            [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
-                        ];
+                            bbox,
+                            intersectionGeometry,
+                            MAP_CONSTANTS.MAX_POIS_DISPLAYED
+                        );
 
-                        const allResults: GeocodingFeature[] = [];
-                        for (const point of searchPoints) {
-                            const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, point[0], point[1], bbox);
-                            allResults.push(...pois);
-                        }
-
-                        const seen = new Set<string>();
-                        const uniquePois = allResults.filter(poi => {
-                            const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
-                            if (seen.has(key)) return false;
-                            seen.add(key);
-                            return true;
-                        });
-
-                        const filteredPois = uniquePois.filter(poi => {
-                            const point = turf.point(poi.center);
-                            return turf.booleanPointInPolygon(point, validIntersection);
-                        });
-
-                        set({ venues: filteredPois.slice(0, 50) });
-
+                        set({ venues: pois });
                         set({ isCalculating: false });
                         return; // Done
                     }

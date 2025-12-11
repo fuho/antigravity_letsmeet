@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import ReactMapGL, { Marker, NavigationControl, Source, Layer, Popup } from "react-map-gl";
+import ReactMapGL, { NavigationControl } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
-import { POI_TYPES } from "@/constants/poiTypes";
+import MapLayers from "./map/MapLayers";
+import LocationMarker from "./map/LocationMarker";
+import POIMarker from "./map/POIMarker";
+import LocationPopup from "./map/LocationPopup";
+import POIPopup from "./map/POIPopup";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -13,7 +17,6 @@ export default function Map() {
     const {
         locations,
         meetingArea,
-        addLocation,
         isochrones,
         addLocationByCoordinates,
         hoveredLocationId,
@@ -60,52 +63,42 @@ export default function Map() {
     // Track dragging state to prevent click conflict and manage drag positions
     const isDraggingRef = useRef(false);
     const [dragPositions, setDragPositions] = React.useState<Record<string, [number, number]>>({});
+    const hadFocusRef = useRef(true); // Track if document had focus before click
+
+    // Track document focus state
+    useEffect(() => {
+        const handleFocus = () => {
+            hadFocusRef.current = true;
+        };
+        const handleBlur = () => {
+            hadFocusRef.current = false;
+        };
+
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('blur', handleBlur);
+
+        // Set initial state
+        hadFocusRef.current = document.hasFocus();
+
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('blur', handleBlur);
+        };
+    }, []);
 
     const handleMapClick = async (e: any) => {
         // Prevent click if dragging or if clicking on a marker (handled by marker click)
         if (isDraggingRef.current || e.originalEvent.defaultPrevented) return;
 
+        // If document didn't have focus, just focus it and don't add location
+        if (!hadFocusRef.current) {
+            window.focus();
+            hadFocusRef.current = true;
+            return;
+        }
+
         const { lng, lat } = e.lngLat;
         await addLocationByCoordinates(lng, lat);
-    };
-
-    // Prepare Isochrone Data Source
-    // We combine all individual isochrones into one FeatureCollection
-    const isochroneFeatures = Object.entries(isochrones)
-        .filter(([_, poly]) => poly !== null) // Filter out nulls
-        .map(([id, poly]) => ({
-            type: "Feature",
-            geometry: poly,
-            properties: {
-                id,
-                color: locations.find((l) => l.id === id)?.color || "#888"
-            },
-        }));
-
-    const isochroneData = {
-        type: "FeatureCollection",
-        features: isochroneFeatures
-    };
-
-    // Style for isochrones with hover effect
-    const isochroneLayerStyle: any = {
-        id: "isochrone-layer",
-        type: "fill",
-        paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": [
-                "case",
-                ["==", ["get", "id"], hoveredLocationId || ""],
-                0.5, // Highlight opacity
-                0.15 // Default opacity
-            ],
-            "fill-outline-color": [
-                "case",
-                ["==", ["get", "id"], hoveredLocationId || ""],
-                "#ffffff", // Highlight outline
-                ["get", "color"] // Default outline
-            ]
-        },
     };
 
     return (
@@ -124,161 +117,69 @@ export default function Map() {
             >
                 <NavigationControl position="top-left" />
 
-                {/* Combined Isochrone Layer */}
-                <Source id="isochrones" type="geojson" data={isochroneData as any}>
-                    <Layer {...isochroneLayerStyle} />
-                </Source>
+                {/* Map Layers (Isochrones & Sweet Spot) */}
+                <MapLayers
+                    isochrones={isochrones}
+                    locations={locations}
+                    meetingArea={meetingArea}
+                    hoveredLocationId={hoveredLocationId}
+                />
 
-                {/* Sweet Spot (Overlap Area) */}
-                {meetingArea && (
-                    <Source id="meeting-area" type="geojson" data={meetingArea}>
-                        <Layer
-                            id="meeting-area-fill"
-                            type="fill"
-                            paint={{
-                                "fill-color": "#FFD700",
-                                "fill-opacity": 0.08
-                            }}
-                        />
-                        <Layer
-                            id="meeting-area-outline"
-                            type="line"
-                            paint={{
-                                "line-color": "#FFD700",
-                                "line-width": 2,
-                                "line-dasharray": [3, 2]
-                            }}
-                        />
-                    </Source>
-                )}
+                {/* Location Markers */}
+                {locations.map((loc) => (
+                    <LocationMarker
+                        key={loc.id}
+                        location={loc}
+                        dragPosition={dragPositions[loc.id]}
+                        onDragStart={() => {
+                            isDraggingRef.current = true;
+                        }}
+                        onDrag={(lng, lat) => {
+                            setDragPositions(prev => ({
+                                ...prev,
+                                [loc.id]: [lng, lat]
+                            }));
+                        }}
+                        onDragEnd={(lng, lat) => {
+                            // Update store with final position first
+                            updateLocationPosition(loc.id, lng, lat);
 
-                {/* Markers */}
-                {locations.map((loc) => {
-                    // Use drag position if actively dragging, otherwise use store coordinates
-                    const position = dragPositions[loc.id] || loc.coordinates;
-
-                    return (
-                        <Marker
-                            key={loc.id}
-                            longitude={position[0]}
-                            latitude={position[1]}
-                            anchor="bottom"
-                            draggable={true}
-                            onDragStart={() => {
-                                isDraggingRef.current = true;
-                            }}
-                            onDrag={(e) => {
-                                // Update local drag position during drag
-                                setDragPositions(prev => ({
-                                    ...prev,
-                                    [loc.id]: [e.lngLat.lng, e.lngLat.lat]
-                                }));
-                            }}
-                            onDragEnd={(e) => {
-                                // Update store with final position first
-                                updateLocationPosition(loc.id, e.lngLat.lng, e.lngLat.lat);
-
-                                // Clear local drag position after a tick so store update propagates
-                                setTimeout(() => {
-                                    setDragPositions(prev => {
-                                        const updated = { ...prev };
-                                        delete updated[loc.id];
-                                        return updated;
-                                    });
-                                    isDraggingRef.current = false;
-                                }, 100);
-                            }}
-                            onClick={(e) => {
-                                e.originalEvent.stopPropagation();
-                            }}
-                        >
-                            <div
-                                className="relative flex items-center justify-center group cursor-pointer"
-                                onMouseEnter={() => {
-                                    useStore.getState().setHoveredLocationId(loc.id);
-                                }}
-                                onMouseLeave={() => {
-                                    useStore.getState().setHoveredLocationId(null);
-                                }}
-                            >
-                                {/* Marker Pin */}
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    width="32"
-                                    height="32"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    fill={loc.color}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className="text-white drop-shadow-lg transition-transform hover:scale-110"
-                                >
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                    <circle cx="12" cy="10" r="3" fill="white" />
-                                </svg>
-                            </div>
-                        </Marker>
-                    );
-                })}
+                            // Clear local drag position after a tick so store update propagates
+                            setTimeout(() => {
+                                setDragPositions(prev => {
+                                    const updated = { ...prev };
+                                    delete updated[loc.id];
+                                    return updated;
+                                });
+                                isDraggingRef.current = false;
+                            }, 100);
+                        }}
+                        onHoverStart={() => {
+                            useStore.getState().setHoveredLocationId(loc.id);
+                        }}
+                        onHoverEnd={() => {
+                            useStore.getState().setHoveredLocationId(null);
+                        }}
+                    />
+                ))}
 
                 {/* POI Markers */}
-                {venues.map((venue) => {
-                    // Look up POI type info from the imported POI_TYPES
-                    const typeInfo = POI_TYPES.find(t => t.id === venue.poiType);
-                    const poiIcon = typeInfo?.icon || '📍';
-                    const poiColor = typeInfo?.color || '#9333ea';
-                    const isHovered = hoveredVenueId === venue.id;
-
-                    return (
-                        <Marker
-                            key={venue.id}
-                            longitude={venue.center[0]}
-                            latitude={venue.center[1]}
-                            anchor="bottom"
-                            onClick={(e) => {
-                                // Prevent location creation when clicking POI
-                                e.originalEvent.stopPropagation();
-                                e.originalEvent.preventDefault();
-                                // Set as hovered to show popup
-                                useStore.getState().setHoveredVenueId(venue.id);
-                            }}
-                        >
-                            <div
-                                className="relative flex items-center justify-center cursor-pointer"
-                                onMouseEnter={() => {
-                                    useStore.getState().setHoveredVenueId(venue.id);
-                                }}
-                                onMouseLeave={() => {
-                                    useStore.getState().setHoveredVenueId(null);
-                                }}
-                            >
-                                {/* POI Pin with type-specific color */}
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    width="20"
-                                    height="20"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    fill={poiColor}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    className={`text-white drop-shadow-lg transition-all ${isHovered ? 'scale-125 brightness-125' : 'hover:scale-110'
-                                        }`}
-                                    style={isHovered ? {
-                                        filter: `drop-shadow(0 0 8px ${poiColor})`,
-                                    } : {}}
-                                >
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                    <circle cx="12" cy="10" r="3" fill="white" />
-                                </svg>
-                                {/* Small icon in center */}
-                                <div className="absolute top-[3px] text-[8px] pointer-events-none filter grayscale">
-                                    {poiIcon}
-                                </div>
-                            </div>
-                        </Marker>
-                    );
-                })}
+                {venues.map((venue) => (
+                    <POIMarker
+                        key={venue.id}
+                        venue={venue}
+                        isHovered={hoveredVenueId === venue.id}
+                        onHoverStart={() => {
+                            useStore.getState().setHoveredVenueId(venue.id);
+                        }}
+                        onHoverEnd={() => {
+                            useStore.getState().setHoveredVenueId(null);
+                        }}
+                        onClick={() => {
+                            useStore.getState().setHoveredVenueId(venue.id);
+                        }}
+                    />
+                ))}
 
                 {/* Popup for hovered location */}
                 {hoveredLocationId && (() => {
@@ -287,52 +188,17 @@ export default function Map() {
 
                     const coords = dragPositions[loc.id] || loc.coordinates;
 
-                    // Remove country (last part after last comma) from address
-                    const formatAddress = (addr: string) => {
-                        const parts = addr.split(',');
-                        return parts.length > 1 ? parts.slice(0, -1).join(',') : addr;
-                    };
-
                     return (
-                        <Popup
-                            longitude={coords[0]}
-                            latitude={coords[1]}
-                            closeButton={false}
-                            closeOnClick={false}
-                            anchor="bottom"
-                            offset={[0, -35]}
-                            className="location-popup"
-                        >
-                            <div
-                                className="bg-gray-900/90 backdrop-blur-sm border border-gray-600/50 rounded-md p-3 shadow-lg min-w-[200px] max-w-[240px] relative"
-                                onMouseEnter={() => useStore.getState().setHoveredLocationId(loc.id)}
-                                onMouseLeave={() => useStore.getState().setHoveredLocationId(null)}
-                            >
-                                {/* Remove button - top right */}
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeLocation(loc.id);
-                                        useStore.getState().setHoveredLocationId(null);
-                                    }}
-                                    className="absolute top-1 right-1 text-gray-500 hover:text-red-400 transition-colors text-xl leading-none p-1 focus:outline-none"
-                                >
-                                    ×
-                                </button>
-
-                                {/* Location info */}
-                                <div className="pr-4">
-                                    {loc.name && (
-                                        <div className="font-semibold text-white text-sm mb-1">
-                                            {loc.name}
-                                        </div>
-                                    )}
-                                    <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
-                                        {formatAddress(loc.address)}
-                                    </div>
-                                </div>
-                            </div>
-                        </Popup>
+                        <LocationPopup
+                            location={loc}
+                            coordinates={coords}
+                            onRemove={() => {
+                                removeLocation(loc.id);
+                                useStore.getState().setHoveredLocationId(null);
+                            }}
+                            onHoverStart={() => useStore.getState().setHoveredLocationId(loc.id)}
+                            onHoverEnd={() => useStore.getState().setHoveredLocationId(null)}
+                        />
                     );
                 })()}
 
@@ -342,28 +208,11 @@ export default function Map() {
                     if (!venue) return null;
 
                     return (
-                        <Popup
-                            longitude={venue.center[0]}
-                            latitude={venue.center[1]}
-                            closeButton={false}
-                            closeOnClick={false}
-                            anchor="bottom"
-                            offset={[0, -25]}
-                            className="poi-popup"
-                        >
-                            <div
-                                className="bg-gray-900/90 backdrop-blur-sm border border-purple-500/50 rounded-md p-3 shadow-lg min-w-[200px] max-w-[240px]"
-                                onMouseEnter={() => useStore.getState().setHoveredVenueId(venue.id)}
-                                onMouseLeave={() => useStore.getState().setHoveredVenueId(null)}
-                            >
-                                <div className="font-semibold text-white text-sm mb-1">
-                                    {venue.text}
-                                </div>
-                                <div className="text-xs text-gray-300 leading-relaxed">
-                                    {venue.place_name}
-                                </div>
-                            </div>
-                        </Popup>
+                        <POIPopup
+                            venue={venue}
+                            onHoverStart={() => useStore.getState().setHoveredVenueId(venue.id)}
+                            onHoverEnd={() => useStore.getState().setHoveredVenueId(null)}
+                        />
                     );
                 })()}
 

@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Share2, Copy, X, Check } from "lucide-react";
+import { Share2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import { PRESETS, Project } from "@/data/presets";
-import { POI_TYPES } from "@/constants/poiTypes";
+import ShareModal from "./sidebar/ShareModal";
+import DeleteModal from "./sidebar/DeleteModal";
+import UpdateModal from "./sidebar/UpdateModal";
+import POITypeSelector from "./sidebar/POITypeSelector";
+import ProjectControls from "./sidebar/ProjectControls";
+import LocationList from "./sidebar/LocationList";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
@@ -135,9 +140,6 @@ export default function Sidebar() {
         });
         setQuery("");
         setSuggestions([]);
-        // Reset active project since we modified state
-        // Actually, if we want to "Update", we should keep it active but mark dirty?
-        // For simplicity: modifying locations keeps ID but is "unsaved".
     };
 
     const handleCalculate = async () => {
@@ -171,6 +173,11 @@ export default function Sidebar() {
 
     const updateActiveProject = () => {
         if (!activeProjectId) return;
+        setShowUpdateConfirmation(true);
+    };
+
+    const confirmUpdateProject = () => {
+        if (!activeProjectId) return;
 
         const updatedLocations = locations.map(l => ({
             id: l.id,
@@ -180,15 +187,15 @@ export default function Sidebar() {
             color: l.color
         }));
 
-        const updatedProjects = savedProjects.map(p => {
-            if (p.id === activeProjectId) {
-                return { ...p, locations: updatedLocations, maxTravelTime };
-            }
-            return p;
-        });
+        const updatedProjects = savedProjects.map(p =>
+            p.id === activeProjectId
+                ? { ...p, locations: updatedLocations, maxTravelTime }
+                : p
+        );
 
         setSavedProjects(updatedProjects);
         localStorage.setItem("mpf_projects", JSON.stringify(updatedProjects));
+        setShowUpdateConfirmation(false);
         alert("Project updated!");
     };
 
@@ -198,18 +205,16 @@ export default function Sidebar() {
         // Check presets first
         const preset = PRESETS.find(p => p.id === projectId);
         if (preset) {
-            // Presets don't need update logic really, they are read-only.
-            // But we pass the ID so the dropdown reflects the selection.
             loadProject(preset.locations, preset.maxTravelTime || 30, preset.id);
-            setTimeout(() => calculateMeetingZone(), 500);
+            setTimeout(() => calculateMeetingZone(), 800);
             return;
         }
 
-        // Check saved
+        // Then check saved projects
         const saved = savedProjects.find(p => p.id === projectId);
         if (saved) {
             loadProject(saved.locations, saved.maxTravelTime || 30, saved.id);
-            setTimeout(() => calculateMeetingZone(), 500);
+            setTimeout(() => calculateMeetingZone(), 800);
         }
     };
 
@@ -219,84 +224,28 @@ export default function Sidebar() {
     const [copied, setCopied] = useState(false);
 
     const handleShare = () => {
-        // URL is always up-to-date, just use current location
-        const url = window.location.href;
+        const shareString = getShareString();
+        const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(shareString)}`;
         setShareUrl(url);
         setShowShareModal(true);
         setCopied(false);
     };
 
-    const copyToClipboard = async () => {
-        try {
-            await navigator.clipboard.writeText(shareUrl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Failed to copy', err);
-        }
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
-    const renderShareModal = () => {
-        if (!showShareModal) return null;
-        return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                <div className="bg-gray-900 border border-purple-500/30 rounded-xl p-6 shadow-2xl max-w-md w-full relative animate-in fade-in zoom-in-95 duration-200">
-                    <button
-                        onClick={() => setShowShareModal(false)}
-                        className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
-
-                    <div className="flex items-center space-x-3 mb-4">
-                        <div className="p-3 bg-purple-500/10 rounded-full text-purple-400">
-                            <Share2 size={24} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-white">Share Project</h3>
-                            <p className="text-gray-400 text-sm">Anyone with this link can view this project.</p>
-                        </div>
-                    </div>
-
-                    <div className="relative mb-6">
-                        <input
-                            type="text"
-                            readOnly
-                            value={shareUrl}
-                            onClick={(e) => e.currentTarget.select()}
-                            className="w-full bg-black/50 border border-gray-700 rounded-lg py-3 px-4 pr-12 text-gray-300 text-sm focus:outline-none focus:border-purple-500 transition-colors"
-                        />
-                        <button
-                            onClick={copyToClipboard}
-                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all ${copied ? 'bg-green-500/20 text-green-400' : 'hover:bg-gray-700 text-gray-400 hover:text-white'
-                                }`}
-                            title="Copy to clipboard"
-                        >
-                            {copied ? <Check size={18} /> : <Copy size={18} />}
-                        </button>
-                    </div>
-
-                    <div className="flex justify-end">
-                        <button
-                            onClick={() => setShowShareModal(false)}
-                            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
-                        >
-                            Done
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name;
-
-    // Inline Updating State
+    // Inline Editing State
     const [editingItem, setEditingItem] = useState<{ id: string; field: 'name' | 'address' } | null>(null);
     const [editValue, setEditValue] = useState("");
 
     // Delete Confirmation State
     const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
+
+    // Update Confirmation State
+    const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
 
     const startEditing = (id: string, field: 'name' | 'address', currentValue: string) => {
         setEditingItem({ id, field });
@@ -305,11 +254,7 @@ export default function Sidebar() {
 
     const saveEdit = () => {
         if (editingItem) {
-            updateLocationNameAndAddress(
-                editingItem.id,
-                editingItem.field === 'name' ? editValue : undefined,
-                editingItem.field === 'address' ? editValue : undefined
-            );
+            updateLocationNameAndAddress(editingItem.id, editingItem.field, editValue);
             setEditingItem(null);
         }
     };
@@ -322,40 +267,7 @@ export default function Sidebar() {
         }
     };
 
-    // Render Delete Confirmation Modal
-    const renderDeleteModal = () => {
-        if (!locationToDelete) return null;
-        return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 shadow-2xl max-w-sm w-full">
-                    <h3 className="text-lg font-bold text-white mb-2">Remove Location?</h3>
-                    <p className="text-gray-400 text-sm mb-6">
-                        Are you sure you want to remove this location from your project?
-                    </p>
-                    <div className="flex space-x-3">
-                        <button
-                            onClick={() => setLocationToDelete(null)}
-                            className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white font-medium hover:bg-gray-700 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={() => {
-                                removeLocation(locationToDelete);
-                                setLocationToDelete(null);
-                                setHoveredLocationId(null);
-                            }}
-                            className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-500 transition-colors"
-                        >
-                            Remove
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-
+    const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name || null;
 
     return (
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
@@ -397,106 +309,37 @@ export default function Sidebar() {
             </div>
 
             {/* Project Controls */}
-            {showProjectControls && (
-                <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3 mb-6">
-                    {/* Load Project */}
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
-                        <select
-                            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded p-2"
-                            onChange={(e) => loadSelectedProject(e.target.value)}
-                            value={activeProjectId || ""}
-                        >
-                            <option value="">Select a project...</option>
-                            <optgroup label="Presets">
-                                {PRESETS.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </optgroup>
-                            {savedProjects.length > 0 && (
-                                <optgroup label="My Projects">
-                                    {savedProjects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </optgroup>
-                            )}
-                        </select>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex space-x-2 pt-2 border-t border-gray-700">
-                        {/* Update Existing (Only for saved custom projects, not presets) */}
-                        {activeProjectId && savedProjects.some(p => p.id === activeProjectId) && (
-                            <button
-                                onClick={updateActiveProject}
-                                className="flex-1 bg-blue-700 hover:bg-blue-600 text-white text-xs px-2 py-2 rounded transition-colors"
-                            >
-                                Update "{activeProjectName}"
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex space-x-2">
-                        <input
-                            type="text"
-                            placeholder="New Project Name"
-                            className="flex-1 bg-gray-800 border-gray-700 text-white text-xs rounded px-2 focus:border-purple-500 focus:outline-none transition-colors"
-                            value={projectName}
-                            onChange={(e) => setProjectName(e.target.value)}
-                        />
-                        <button
-                            onClick={saveCurrentProject}
-                            disabled={locations.length === 0 || !projectName}
-                            className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1 rounded disabled:opacity-50 transition-colors"
-                        >
-                            Save New
-                        </button>
-                    </div>
-                </div>
-            )}
+            <ProjectControls
+                isOpen={showProjectControls}
+                savedProjects={savedProjects}
+                activeProjectId={activeProjectId}
+                activeProjectName={activeProjectName}
+                projectName={projectName}
+                locationsCount={locations.length}
+                onLoadProject={loadSelectedProject}
+                onUpdateProject={updateActiveProject}
+                onSaveProject={saveCurrentProject}
+                onProjectNameChange={setProjectName}
+            />
 
             <div className="flex-1 overflow-y-auto space-y-6">
                 {/* Controls Section */}
                 <div>
                     {/* POI Type Selector */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-400 mb-3">
-                            Meeting Venue Types
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {POI_TYPES.map((poiType) => {
-                                const isSelected = selectedPOITypes.includes(poiType.id);
-                                return (
-                                    <button
-                                        key={poiType.id}
-                                        onClick={async () => {
-                                            if (isSelected) {
-                                                setSelectedPOITypes(selectedPOITypes.filter(id => id !== poiType.id));
-                                            } else {
-                                                setSelectedPOITypes([...selectedPOITypes, poiType.id]);
-                                            }
-                                            // Refresh POIs to update markers on map
-                                            await refreshPOIs();
-                                        }}
-                                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all text-sm ${isSelected
-                                            ? 'bg-purple-600/20 border-purple-500 text-white'
-                                            : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
-                                            }`}
-                                    >
-                                        <span className="text-lg">{poiType.icon}</span>
-                                        <span className="font-medium">{poiType.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {selectedPOITypes.length === 0 && (
-                            <p className="text-xs text-gray-500 mt-2 italic">
-                                No venue types selected. Sweet Spot will be shown without POI suggestions.
-                            </p>
-                        )}
-                    </div>
+                    <POITypeSelector
+                        selectedTypes={selectedPOITypes}
+                        onToggleType={async (typeId) => {
+                            if (selectedPOITypes.includes(typeId)) {
+                                setSelectedPOITypes(selectedPOITypes.filter(id => id !== typeId));
+                            } else {
+                                setSelectedPOITypes([...selectedPOITypes, typeId]);
+                            }
+                            await refreshPOIs();
+                        }}
+                    />
 
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Max Travel Time: <span className="text-white">{maxTravelTime} min</span>
+                        Max Travel Time: <span className="text-white font-bold">{maxTravelTime} min</span>
                     </label>
                     <input
                         type="range"
@@ -512,217 +355,133 @@ export default function Sidebar() {
 
                 {/* Locations Section */}
                 <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-md font-semibold text-gray-200">Locations</h3>
-                        <button
-                            onClick={() => {
-                                locations.forEach(l => removeLocation(l.id));
-                                setActiveProjectId(null); // Clear active project on clear
-                            }}
-                            className="text-xs text-red-400 hover:text-red-300 underline"
-                        >
-                            Clear All
-                        </button>
-                    </div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
+                        Locations ({locations.length})
+                    </label>
 
-                    {/* Search Input */}
-                    <div className="relative mb-4">
+                    {/* Search Bar */}
+                    <div className="relative mb-3">
                         <input
                             type="text"
+                            placeholder="Search for a location..."
+                            className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
                             value={query}
                             onChange={handleSearch}
-                            placeholder="Enter an address..."
-                            className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg py-2 px-3 focus:outline-none focus:border-purple-500 transition-colors placeholder-gray-500"
                         />
                         {suggestions.length > 0 && (
-                            <ul className="absolute top-full left-0 right-0 bg-gray-900 border border-gray-700 rounded-lg mt-1 z-20 max-h-48 overflow-y-auto shadow-xl">
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20">
                                 {suggestions.map((item) => (
-                                    <li
+                                    <div
                                         key={item.id}
+                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-gray-300 border-b border-gray-800 last:border-b-0"
                                         onClick={() => selectLocation(item)}
-                                        className="px-3 py-2 hover:bg-purple-900/30 cursor-pointer text-sm text-gray-300 hover:text-white transition-colors border-b border-gray-800 last:border-0"
                                     >
                                         {item.place_name}
-                                    </li>
+                                    </div>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
 
                     {/* Location List */}
-                    <div className="space-y-3 mb-6">
-                        {locations.length === 0 && (
-                            <p className="text-sm text-gray-500 italic">No locations added yet.</p>
-                        )}
-                        {locations.map((loc) => {
-                            const isHovered = hoveredLocationId === loc.id;
-                            const isEditingName = editingItem?.id === loc.id && editingItem?.field === 'name';
-                            const isEditingAddress = editingItem?.id === loc.id && editingItem?.field === 'address';
-
-                            return (
-                                <div
-                                    key={loc.id}
-                                    className={`p-3 rounded-lg border transition-all relative ${isHovered
-                                        ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
-                                        : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
-                                        }`}
-                                    onMouseEnter={() => {
-                                        if (!editingItem) {
-                                            setHoveredLocationId(loc.id);
-                                            useStore.getState().setHoveredLocationId(loc.id);
-                                        }
-                                    }}
-                                    onMouseLeave={() => {
-                                        if (!editingItem) {
-                                            setHoveredLocationId(null);
-                                            useStore.getState().setHoveredLocationId(null);
-                                        }
-                                    }}
-                                >
-                                    {/* Remove button - top right corner */}
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setLocationToDelete(loc.id);
-                                        }}
-                                        className="absolute top-2 right-2 text-gray-600 hover:text-red-400 transition-colors text-lg font-bold w-5 h-5 flex items-center justify-center focus:outline-none z-10"
-                                    >
-                                        ×
-                                    </button>
-
-                                    <div className="flex items-center space-x-3 pr-6">
-                                        <div className="flex-shrink-0">
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{
-                                                    backgroundColor: loc.color,
-                                                    boxShadow: `0 0 8px ${loc.color}`
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            {/* Name Field */}
-                                            {isEditingName ? (
-                                                <input
-                                                    autoFocus
-                                                    type="text"
-                                                    value={editValue}
-                                                    onChange={(e) => setEditValue(e.target.value)}
-                                                    onBlur={saveEdit}
-                                                    onKeyDown={handleKeyDown}
-                                                    className="w-full bg-gray-950 text-white text-sm font-bold border border-purple-500 rounded px-1 py-0.5 focus:outline-none mb-1"
-                                                />
-                                            ) : (
-                                                <div
-                                                    onClick={() => startEditing(loc.id, 'name', loc.name || "")}
-                                                    className="text-sm font-bold text-white mb-0.5 cursor-text hover:text-purple-300 transition-colors min-h-[20px]"
-                                                >
-                                                    {loc.name || <span className="text-gray-600 italic font-normal">Add name...</span>}
-                                                </div>
-                                            )}
-
-                                            {/* Address Field */}
-                                            {isEditingAddress ? (
-                                                <input
-                                                    autoFocus
-                                                    type="text"
-                                                    value={editValue}
-                                                    onChange={(e) => setEditValue(e.target.value)}
-                                                    onBlur={saveEdit}
-                                                    onKeyDown={handleKeyDown}
-                                                    className="w-full bg-gray-950 text-gray-300 text-sm border border-purple-500 rounded px-1 py-0.5 focus:outline-none"
-                                                />
-                                            ) : (
-                                                <p
-                                                    onClick={() => startEditing(loc.id, 'address', loc.address)}
-                                                    className={`text-sm cursor-text hover:text-purple-300 transition-colors truncate ${loc.name ? 'text-gray-400' : 'font-medium text-white'}`}
-                                                    title={loc.address} // Show full address on hover
-                                                >
-                                                    {loc.address}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    {renderDeleteModal()}
-
-                    {/* Calculate Buttons */}
-                    <div className="flex space-x-2">
-                        <button
-                            onClick={() => calculateMeetingZone()}
-                            disabled={isCalculating || locations.length === 0}
-                            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                        >
-                            {isCalculating ? "..." : "Find Sweet Spot"}
-                        </button>
-                        <button
-                            onClick={() => useStore.getState().findOptimalMeetingPoint()}
-                            disabled={isCalculating || locations.length < 2}
-                            className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
-                        >
-                            {isCalculating ? "..." : "Auto-Optimize"}
-                        </button>
-                    </div>
-
-                    {errorMsg && (
-                        <p className="text-red-400 text-sm mt-2 text-center">{errorMsg}</p>
-                    )}
-
+                    <LocationList
+                        locations={locations}
+                        hoveredLocationId={hoveredLocationId}
+                        editingItem={editingItem}
+                        editValue={editValue}
+                        onHoverStart={(id) => {
+                            setHoveredLocationId(id);
+                            useStore.getState().setHoveredLocationId(id);
+                        }}
+                        onHoverEnd={() => {
+                            setHoveredLocationId(null);
+                            useStore.getState().setHoveredLocationId(null);
+                        }}
+                        onStartEdit={startEditing}
+                        onEditValueChange={setEditValue}
+                        onSaveEdit={saveEdit}
+                        onKeyDown={handleKeyDown}
+                        onDeleteClick={setLocationToDelete}
+                    />
                 </div>
 
-                {/* Results Section (Stacked) */}
-                {(venues.length > 0 || errorMsg) && (
-                    <div className="pt-6 border-t border-gray-800">
-                        <h3 className="text-xl font-bold mb-4 text-purple-400">Results</h3>
-                        {errorMsg ? (
-                            <p className="text-red-400">{errorMsg}</p>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="bg-gray-900 border border-gray-700 p-4 rounded-lg">
-                                    <h4 className="font-semibold text-white mb-2">Sweet Spot Found!</h4>
-                                    <p className="text-sm text-gray-400">
-                                        The highlighted golden area represents the optimal sweet spot reachable by all participants within {maxTravelTime} minutes (driving).
-                                    </p>
-                                </div>
+                {/* Calculate Buttons */}
+                <div className="flex space-x-2">
+                    <button
+                        onClick={() => calculateMeetingZone()}
+                        disabled={isCalculating || locations.length === 0}
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                    >
+                        {isCalculating ? "Calculating..." : "Find Sweet Spot"}
+                    </button>
+                </div>
 
-                                <div>
-                                    <h4 className="font-semibold text-white mb-2">Suggested Meeting Sites</h4>
-                                    {venues.length === 0 ? (
-                                        <p className="text-sm text-gray-500">Searching for cafes...</p>
-                                    ) : (
-                                        <ul className="space-y-2">
-                                            {venues.map(venue => {
-                                                const isHovered = hoveredVenueId === venue.id;
-                                                return (
-                                                    <li
-                                                        key={venue.id}
-                                                        className={`p-2 rounded text-sm transition-all cursor-pointer ${isHovered
-                                                                ? 'bg-purple-600/20 border border-purple-500 text-white shadow-lg shadow-purple-900/20'
-                                                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                            }`}
-                                                        onMouseEnter={() => setHoveredVenueId(venue.id)}
-                                                        onMouseLeave={() => setHoveredVenueId(null)}
-                                                    >
-                                                        <div className="font-medium">{venue.text}</div>
-                                                        <div className="text-xs text-gray-500">{venue.place_name}</div>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                {errorMsg && (
+                    <div className="bg-red-900/30 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm">
+                        {errorMsg}
+                    </div>
+                )}
+
+                {/* Venues Section */}
+                {venues.length > 0 && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Suggested Venues ({venues.length})
+                        </label>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {venues.map((venue) => {
+                                const isHovered = hoveredVenueId === venue.id;
+                                return (
+                                    <div
+                                        key={venue.id}
+                                        className={`p-3 rounded-lg border transition-all cursor-pointer ${isHovered
+                                                ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
+                                                : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
+                                            }`}
+                                        onMouseEnter={() => {
+                                            setHoveredVenueId(venue.id);
+                                            useStore.getState().setHoveredVenueId(venue.id);
+                                        }}
+                                        onMouseLeave={() => {
+                                            setHoveredVenueId(null);
+                                            useStore.getState().setHoveredVenueId(null);
+                                        }}
+                                    >
+                                        <div className="font-medium text-white text-sm mb-1">{venue.text}</div>
+                                        <div className="text-xs text-gray-400">{venue.place_name}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
 
             {/* Modals */}
-            {renderShareModal()}
-            {renderDeleteModal()}
-        </div >
+            <ShareModal
+                isOpen={showShareModal}
+                shareUrl={shareUrl}
+                copied={copied}
+                onClose={() => setShowShareModal(false)}
+                onCopy={copyToClipboard}
+            />
+            <DeleteModal
+                isOpen={!!locationToDelete}
+                onCancel={() => setLocationToDelete(null)}
+                onConfirm={() => {
+                    if (locationToDelete) {
+                        removeLocation(locationToDelete);
+                        setLocationToDelete(null);
+                        setHoveredLocationId(null);
+                    }
+                }}
+            />
+            <UpdateModal
+                isOpen={showUpdateConfirmation}
+                projectName={activeProjectName || ""}
+                onCancel={() => setShowUpdateConfirmation(false)}
+                onConfirm={confirmUpdateProject}
+            />
+        </div>
     );
 }
