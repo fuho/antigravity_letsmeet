@@ -120,7 +120,7 @@ export const useStore = create<AppState>((set, get) => ({
                 color: item.col || '#ffffff'
             }));
 
-            get().loadProject(newLocations, data.t || 30, null);
+            get().loadProject(newLocations, data.t || 30, undefined);
             return true;
         } catch (e) {
             console.error("Failed to parse share string", e);
