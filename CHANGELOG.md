@@ -5,6 +5,27 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-12
+
+### Added
+
+- **Transport Mode Selector**: Choose between walking 🚶, cycling 🚴, or driving 🚗 for travel time calculations
+  - Isochrone zones now respect the selected transport mode
+  - Transport mode persists in shared links and saved projects
+  - Auto-recalculates map when transport mode changes
+- **Transport Mode Tests**: Added test coverage for transport mode in share utilities
+
+### Changed
+
+- **Sidebar UX Improvements**:
+  - "Add location" input moved to bottom of locations list
+  - Travel time label now shows mode: "Max travel time: 30 min by walking"
+  - Locations label changed to "from locations" for better readability
+
+### Removed
+
+- **Venue Types**: Temporarily disabled Dance 💃 and Shop 🛍️ venue types
+
 ## [1.4.0] - 2025-12-11
 
 ### Added

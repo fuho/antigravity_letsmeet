@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Share2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
+import { TRANSPORT_MODES, TransportMode } from "@/store/slices/createMeetingSlice";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import ShareModal from "./sidebar/ShareModal";
 import DeleteModal from "./sidebar/DeleteModal";
@@ -29,6 +30,8 @@ export default function Sidebar() {
         updateLocationNameAndAddress,
         maxTravelTime,
         setMaxTravelTime,
+        transportMode,
+        setTransportMode,
         venues,
         isCalculating,
         errorMsg,
@@ -76,7 +79,7 @@ export default function Sidebar() {
             if (debounceTimer) clearTimeout(debounceTimer);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [maxTravelTime]);
+    }, [maxTravelTime, transportMode]);
 
     const handleQueryChange = async (val: string) => {
         setQuery(val);
@@ -230,34 +233,51 @@ export default function Sidebar() {
                         }}
                     />
 
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Max Travel Time:{" "}
-                        <span className="text-white font-bold">{maxTravelTime} min</span>
-                    </label>
-                    <input
-                        type="range"
-                        min="5"
-                        max="60"
-                        step="5"
-                        value={maxTravelTime}
-                        onChange={(e) => setMaxTravelTime(parseInt(e.target.value))}
-                        className="w-full accent-purple-500 bg-gray-700 rounded-lg appearance-none h-2 cursor-pointer"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Auto-updates map...</p>
+                    {/* Travel Time Controls */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-400 mb-2">
+                            Max travel time:{" "}
+                            <span className="text-white font-bold">{maxTravelTime} min</span>
+                            {" "}by{" "}
+                            <span className="text-purple-300 font-bold">
+                                {TRANSPORT_MODES.find(m => m.id === transportMode)?.label.toLowerCase()}
+                            </span>
+                        </label>
+                        <div className="flex items-center space-x-3">
+                            <input
+                                type="range"
+                                min="5"
+                                max="60"
+                                step="5"
+                                value={maxTravelTime}
+                                onChange={(e) => setMaxTravelTime(parseInt(e.target.value))}
+                                className="flex-1 accent-purple-500 bg-gray-700 rounded-lg appearance-none h-2 cursor-pointer"
+                            />
+                            <div className="flex space-x-1">
+                                {TRANSPORT_MODES.map((mode) => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setTransportMode(mode.id)}
+                                        title={mode.label}
+                                        className={`w-8 h-8 rounded-md flex items-center justify-center text-lg transition-all ${transportMode === mode.id
+                                            ? 'bg-purple-600/30 border border-purple-500'
+                                            : 'bg-gray-800/50 border border-gray-700 hover:border-gray-600'
+                                            }`}
+                                    >
+                                        {mode.icon}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Auto-updates map...</p>
+                    </div>
                 </div>
 
                 {/* Locations Section */}
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Locations ({locations.length})
+                        from locations ({locations.length})
                     </label>
-
-                    <AddressSearchInput
-                        query={query}
-                        suggestions={suggestions}
-                        onQueryChange={handleQueryChange}
-                        onSelectLocation={selectLocation}
-                    />
 
                     <LocationList
                         locations={locations}
@@ -277,6 +297,13 @@ export default function Sidebar() {
                         onSaveEdit={saveEdit}
                         onKeyDown={handleKeyDown}
                         onDeleteClick={setLocationToDelete}
+                    />
+
+                    <AddressSearchInput
+                        query={query}
+                        suggestions={suggestions}
+                        onQueryChange={handleQueryChange}
+                        onSelectLocation={selectLocation}
                     />
                 </div>
 

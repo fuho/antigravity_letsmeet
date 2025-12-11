@@ -1,14 +1,23 @@
 import { StateCreator } from "zustand";
 import { AppState } from "../useStore";
 import { GeocodingFeature } from "@/services/mapbox";
-import { getIsochrone } from "@/services/isochrone";
+import { getIsochrone, IsochroneProfile } from "@/services/isochrone";
 import { calculateIntersection, getBoundingBox, getCentroid } from "@/utils/geometry";
 import { searchPOIsInArea } from "@/utils/poi";
 import { searchMultiplePOITypes } from "@/services/poi";
 import { MAP_CONSTANTS, TRAVEL_TIME_OPTIONS } from "@/constants/map";
 
+export type TransportMode = IsochroneProfile;
+
+export const TRANSPORT_MODES: { id: TransportMode; label: string; icon: string }[] = [
+    { id: "walking", label: "Walking", icon: "🚶" },
+    { id: "cycling", label: "Cycling", icon: "🚴" },
+    { id: "driving", label: "Driving", icon: "🚗" },
+];
+
 export interface MeetingSlice {
     maxTravelTime: number;
+    transportMode: TransportMode;
     isochrones: Record<string, GeoJSON.Polygon>;
     meetingArea: GeoJSON.Geometry | null;
     venues: GeocodingFeature[];
@@ -16,6 +25,7 @@ export interface MeetingSlice {
     errorMsg: string | null;
 
     setMaxTravelTime: (time: number) => void;
+    setTransportMode: (mode: TransportMode) => void;
     setIsochrone: (id: string, poly: GeoJSON.Polygon) => void;
     setMeetingArea: (area: GeoJSON.Geometry | null) => void;
     calculateMeetingZone: () => Promise<void>;
@@ -25,6 +35,7 @@ export interface MeetingSlice {
 
 export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = (set, get) => ({
     maxTravelTime: 30,
+    transportMode: "walking" as TransportMode,
     isochrones: {},
     meetingArea: null,
     venues: [],
@@ -32,12 +43,13 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
     errorMsg: null,
 
     setMaxTravelTime: (time) => set({ maxTravelTime: time }),
+    setTransportMode: (mode) => set({ transportMode: mode }),
     setIsochrone: (id, poly) =>
         set((state) => ({ isochrones: { ...state.isochrones, [id]: poly } })),
     setMeetingArea: (area) => set({ meetingArea: area }),
 
     calculateMeetingZone: async () => {
-        const { locations, maxTravelTime, setIsochrone, setMeetingArea } = get();
+        const { locations, maxTravelTime, transportMode, setIsochrone, setMeetingArea } = get();
 
         if (locations.length < 1) {
             set({ errorMsg: "add at least 1 location", isCalculating: false });
@@ -51,7 +63,7 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
             const polygons: GeoJSON.Polygon[] = [];
 
             for (const loc of locations) {
-                const result = await getIsochrone(loc.coordinates, maxTravelTime, "driving");
+                const result = await getIsochrone(loc.coordinates, maxTravelTime, transportMode);
                 if (result) {
                     const poly = result as GeoJSON.Polygon;
                     setIsochrone(loc.id, poly);
@@ -97,7 +109,7 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
                 const polys: GeoJSON.Polygon[] = [];
                 let possible = true;
 
-                const results = await Promise.all(locations.map(l => getIsochrone(l.coordinates, t, "driving")));
+                const results = await Promise.all(locations.map(l => getIsochrone(l.coordinates, t, get().transportMode)));
 
                 if (results.some(r => !r)) {
                     possible = false;

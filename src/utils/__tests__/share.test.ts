@@ -28,23 +28,24 @@ describe("share utils", () => {
     ];
 
     const maxTravelTime = 30;
+    const transportMode = "walking" as const;
     const selectedPOITypes = ["coffee", "meal", "beer"];
 
     describe("generateShareString", () => {
         it("should generate a non-empty string", () => {
-            const result = generateShareString(sampleLocations, maxTravelTime, selectedPOITypes);
+            const result = generateShareString(sampleLocations, maxTravelTime, transportMode, selectedPOITypes);
             expect(result).toBeTruthy();
             expect(typeof result).toBe("string");
         });
 
         it("should generate valid base64", () => {
-            const result = generateShareString(sampleLocations, maxTravelTime, selectedPOITypes);
+            const result = generateShareString(sampleLocations, maxTravelTime, transportMode, selectedPOITypes);
             // Base64 strings should only contain these characters
             expect(result).toMatch(/^[A-Za-z0-9+/=]+$/);
         });
 
         it("should handle empty locations array", () => {
-            const result = generateShareString([], maxTravelTime, selectedPOITypes);
+            const result = generateShareString([], maxTravelTime, transportMode, selectedPOITypes);
             expect(result).toBeTruthy();
         });
 
@@ -57,7 +58,7 @@ describe("share utils", () => {
                     color: "#ff0000",
                 },
             ];
-            const result = generateShareString(locationsWithoutNames, maxTravelTime, []);
+            const result = generateShareString(locationsWithoutNames, maxTravelTime, transportMode, []);
             expect(result).toBeTruthy();
         });
 
@@ -71,7 +72,7 @@ describe("share utils", () => {
                     color: "#ff0000",
                 },
             ];
-            const result = generateShareString(unicodeLocations, maxTravelTime, []);
+            const result = generateShareString(unicodeLocations, maxTravelTime, transportMode, []);
             expect(result).toBeTruthy();
             // Should be able to parse it back
             const parsed = parseShareString(result);
@@ -82,12 +83,13 @@ describe("share utils", () => {
 
     describe("parseShareString", () => {
         it("should parse a valid share string", () => {
-            const shareString = generateShareString(sampleLocations, maxTravelTime, selectedPOITypes);
+            const shareString = generateShareString(sampleLocations, maxTravelTime, transportMode, selectedPOITypes);
             const result = parseShareString(shareString);
 
             expect(result).not.toBeNull();
             expect(result?.v).toBe(1);
             expect(result?.t).toBe(maxTravelTime);
+            expect(result?.m).toBe(transportMode);
             expect(result?.p).toEqual(selectedPOITypes);
             expect(result?.l).toHaveLength(2);
         });
@@ -120,11 +122,12 @@ describe("share utils", () => {
 
     describe("roundtrip", () => {
         it("should preserve all data through encode/decode", () => {
-            const shareString = generateShareString(sampleLocations, maxTravelTime, selectedPOITypes);
+            const shareString = generateShareString(sampleLocations, maxTravelTime, transportMode, selectedPOITypes);
             const parsed = parseShareString(shareString);
 
             expect(parsed).not.toBeNull();
             expect(parsed?.t).toBe(maxTravelTime);
+            expect(parsed?.m).toBe(transportMode);
             expect(parsed?.p).toEqual(selectedPOITypes);
             expect(parsed?.l).toHaveLength(sampleLocations.length);
 
@@ -133,6 +136,15 @@ describe("share utils", () => {
             expect(parsed?.l[0].a).toBe(sampleLocations[0].address);
             expect(parsed?.l[0].n).toBe(sampleLocations[0].name);
             expect(parsed?.l[0].col).toBe(sampleLocations[0].color);
+        });
+
+        it("should preserve different transport modes", () => {
+            const modes = ["walking", "cycling", "driving"] as const;
+            for (const mode of modes) {
+                const shareString = generateShareString(sampleLocations, maxTravelTime, mode, selectedPOITypes);
+                const parsed = parseShareString(shareString);
+                expect(parsed?.m).toBe(mode);
+            }
         });
 
         it("should handle special characters in coordinates", () => {
@@ -151,7 +163,7 @@ describe("share utils", () => {
                 },
             ];
 
-            const shareString = generateShareString(extremeLocations, 60, []);
+            const shareString = generateShareString(extremeLocations, 60, "driving", []);
             const parsed = parseShareString(shareString);
 
             expect(parsed?.l[0].c).toEqual([0, 90]);

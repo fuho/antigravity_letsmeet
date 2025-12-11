@@ -1,6 +1,7 @@
 import { StateCreator } from "zustand";
 import { AppState } from "../useStore";
 import { Location } from "./createLocationSlice";
+import { TransportMode } from "./createMeetingSlice";
 import { DEFAULT_POI_TYPES } from "@/constants/poiTypes";
 import { generateShareString, parseShareString } from "@/utils/share";
 
@@ -16,7 +17,7 @@ export interface UISlice {
     activeProjectId: string | null;
     setActiveProjectId: (id: string | null) => void;
 
-    loadProject: (locations: Location[], maxTime?: number, projectId?: string) => void;
+    loadProject: (locations: Location[], maxTime?: number, transportMode?: TransportMode, projectId?: string) => void;
     getShareString: () => string;
     importFromShareString: (shareString: string) => boolean;
 }
@@ -34,13 +35,14 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     activeProjectId: null,
     setActiveProjectId: (id) => set({ activeProjectId: id }),
 
-    loadProject: (newLocations, maxTime, projectId) => {
+    loadProject: (newLocations, maxTime, transportMode, projectId) => {
         set({
             // Location Slice
             locations: newLocations,
 
             // Meeting Slice
             maxTravelTime: maxTime || 30,
+            transportMode: transportMode || "walking",
             isochrones: {},
             meetingArea: null,
             venues: [],
@@ -53,8 +55,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     },
 
     getShareString: () => {
-        const { locations, maxTravelTime, selectedPOITypes } = get();
-        return generateShareString(locations, maxTravelTime, selectedPOITypes);
+        const { locations, maxTravelTime, transportMode, selectedPOITypes } = get();
+        return generateShareString(locations, maxTravelTime, transportMode, selectedPOITypes);
     },
 
     importFromShareString: (shareString) => {
@@ -70,8 +72,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         }));
 
         const poiTypes = data.p || get().selectedPOITypes;
+        const transportMode = data.m || "walking";
 
-        get().loadProject(newLocations, data.t || 30, undefined);
+        get().loadProject(newLocations, data.t || 30, transportMode, undefined);
         set({ selectedPOITypes: poiTypes });
         return true;
     }

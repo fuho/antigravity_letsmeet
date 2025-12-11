@@ -1,8 +1,10 @@
 import { Location } from "@/store/useStore";
+import { TransportMode } from "@/store/slices/createMeetingSlice";
 
 export interface ShareData {
     v: number;
     t: number;
+    m?: TransportMode; // transport mode (walking, cycling, driving)
     p: string[];
     l: {
         c: [number, number];
@@ -12,11 +14,12 @@ export interface ShareData {
     }[];
 }
 
-export const generateShareString = (locations: Location[], maxTravelTime: number, selectedPOITypes: string[]): string => {
+export const generateShareString = (locations: Location[], maxTravelTime: number, transportMode: TransportMode, selectedPOITypes: string[]): string => {
     // Compact schema
     const data: ShareData = {
         v: 1, // version
         t: maxTravelTime,
+        m: transportMode, // transport mode
         p: selectedPOITypes, // POI types
         l: locations.map(loc => ({
             c: loc.coordinates,

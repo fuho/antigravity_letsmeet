@@ -2,6 +2,7 @@ export interface Project {
     id: string;
     name: string;
     maxTravelTime?: number;
+    transportMode?: "walking" | "cycling" | "driving";
     locations: {
         id: string;
         name?: string;

@@ -19,6 +19,7 @@ export function useUrlSync() {
     const {
         locations,
         maxTravelTime,
+        transportMode,
         selectedPOITypes,
         getShareString,
         importFromShareString,
@@ -59,7 +60,7 @@ export function useUrlSync() {
         if (!shareString && useStore.getState().locations.length === 0) {
             const prague = PRESETS.find((p) => p.id === "prague-lightness");
             if (prague) {
-                loadProject(prague.locations, prague.maxTravelTime || 15, prague.id);
+                loadProject(prague.locations, prague.maxTravelTime || 15, (prague.transportMode || "walking") as "walking" | "cycling" | "driving", prague.id);
                 setTimeout(() => calculateMeetingZone(), 800);
             }
         }
@@ -77,7 +78,7 @@ export function useUrlSync() {
             window.history.replaceState({}, "", newUrl);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locations, maxTravelTime, selectedPOITypes]);
+    }, [locations, maxTravelTime, transportMode, selectedPOITypes]);
 
     // Helper to update saved projects
     const updateSavedProjects = (projects: Project[]) => {

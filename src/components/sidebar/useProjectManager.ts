@@ -20,6 +20,7 @@ export function useProjectManager({ savedProjects, setSavedProjects }: UseProjec
     const {
         locations,
         maxTravelTime,
+        transportMode,
         activeProjectId,
         setActiveProjectId,
         loadProject,
@@ -36,6 +37,7 @@ export function useProjectManager({ savedProjects, setSavedProjects }: UseProjec
             id: crypto.randomUUID(),
             name: projectName,
             maxTravelTime: maxTravelTime,
+            transportMode: transportMode,
             locations: locations.map((l) => ({
                 id: l.id,
                 name: l.name,
@@ -70,7 +72,7 @@ export function useProjectManager({ savedProjects, setSavedProjects }: UseProjec
 
         const updatedProjects = savedProjects.map((p) =>
             p.id === activeProjectId
-                ? { ...p, locations: updatedLocations, maxTravelTime }
+                ? { ...p, locations: updatedLocations, maxTravelTime, transportMode }
                 : p
         );
 
@@ -85,7 +87,7 @@ export function useProjectManager({ savedProjects, setSavedProjects }: UseProjec
         // Check presets first
         const preset = PRESETS.find((p) => p.id === projectId);
         if (preset) {
-            loadProject(preset.locations, preset.maxTravelTime || 30, preset.id);
+            loadProject(preset.locations, preset.maxTravelTime || 30, preset.transportMode || "walking", preset.id);
             setTimeout(() => calculateMeetingZone(), 800);
             return;
         }
@@ -93,7 +95,7 @@ export function useProjectManager({ savedProjects, setSavedProjects }: UseProjec
         // Then check saved projects
         const saved = savedProjects.find((p) => p.id === projectId);
         if (saved) {
-            loadProject(saved.locations, saved.maxTravelTime || 30, saved.id);
+            loadProject(saved.locations, saved.maxTravelTime || 30, saved.transportMode || "walking", saved.id);
             setTimeout(() => calculateMeetingZone(), 800);
         }
     };
