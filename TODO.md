@@ -2,8 +2,8 @@
 
 ## Features
 
-- [ ] POI (Points of Interest)
-  - [ ] Add POI types for Cafe, Restaurant, Pub, Bar, Coffee Shop, etc.
+- [x] POI (Points of Interest)
+  - [x] Add POI types for Cafe, Restaurant, Pub, Bar, Coffee Shop, etc.
   - the user can select which POIs should be shown in (and very close to) the sweet spot
 - [ ] Mobile version
   - the app has to be responsive and work on mobile devices
