@@ -41,6 +41,7 @@ interface AppState {
     calculateMeetingZone: () => Promise<void>;
     findOptimalMeetingPoint: () => Promise<void>;
     searchMultiplePOITypes: (types: string[], lng: number, lat: number, bbox?: [number, number, number, number]) => Promise<GeocodingFeature[]>;
+    refreshPOIs: () => Promise<void>;
 
     loadProject: (locations: Location[], maxTime?: number, projectId?: string) => void;
 
@@ -237,16 +238,36 @@ export const useStore = create<AppState>((set, get) => ({
 
             const results = await searchNearby(poiType.query, lng, lat, bbox);
 
-            // Filter duplicates by ID
+            // Filter duplicates by ID and tag with POI type
             for (const poi of results) {
                 if (!seenIds.has(poi.id)) {
                     seenIds.add(poi.id);
-                    allPOIs.push(poi);
+                    // Tag the POI with its type ID
+                    allPOIs.push({ ...poi, poiType: typeId });
                 }
             }
         }
 
         return allPOIs;
+    },
+
+    // Refresh POIs based on current meeting area and selected types
+    refreshPOIs: async () => {
+        const { meetingArea, selectedPOITypes } = get();
+
+        if (!meetingArea) {
+            set({ venues: [] });
+            return;
+        }
+
+        // Extract centroid and bbox from meeting area
+        // @ts-ignore
+        const center = turf.centroid(turf.feature(meetingArea)).geometry.coordinates;
+        const bbox = turf.bbox(turf.feature(meetingArea)) as [number, number, number, number];
+
+        // Search for POIs
+        const pois = await get().searchMultiplePOITypes(selectedPOITypes, center[0], center[1], bbox);
+        set({ venues: pois });
     },
 
     calculateMeetingZone: async () => {

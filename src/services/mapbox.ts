@@ -5,6 +5,8 @@ export interface GeocodingFeature {
     place_name: string;
     center: [number, number]; // [lng, lat]
     text: string;
+    poiType?: string; // Optional: POI type ID (e.g., 'coffee', 'meal', 'beer')
+    properties?: any; // Optional: Additional properties from API
 }
 
 export async function searchAddress(query: string): Promise<GeocodingFeature[]> {

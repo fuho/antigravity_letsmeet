@@ -5,6 +5,7 @@ import ReactMapGL, { Marker, NavigationControl, Source, Layer, Popup } from "rea
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
+import { POI_TYPES } from "@/constants/poiTypes";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -17,7 +18,8 @@ export default function Map() {
         addLocationByCoordinates,
         hoveredLocationId,
         updateLocationPosition,
-        removeLocation
+        removeLocation,
+        venues
     } = useStore();
 
     // Auto-center map when locations/meeting area change
@@ -213,6 +215,45 @@ export default function Map() {
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                     <circle cx="12" cy="10" r="3" fill="white" />
                                 </svg>
+                            </div>
+                        </Marker>
+                    );
+                })}
+
+                {/* POI Markers */}
+                {venues.map((venue) => {
+                    // Look up POI type info from the imported POI_TYPES
+                    const typeInfo = POI_TYPES.find(t => t.id === venue.poiType);
+                    const poiIcon = typeInfo?.icon || '📍';
+                    const poiColor = typeInfo?.color || '#9333ea';
+
+                    return (
+                        <Marker
+                            key={venue.id}
+                            longitude={venue.center[0]}
+                            latitude={venue.center[1]}
+                            anchor="bottom"
+                        >
+                            <div className="relative flex items-center justify-center cursor-pointer">
+                                {/* POI Pin with type-specific color */}
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="20"
+                                    height="20"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    fill={poiColor}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="text-white drop-shadow-lg transition-transform hover:scale-110"
+                                >
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" fill="white" />
+                                </svg>
+                                {/* Small icon in center */}
+                                <div className="absolute top-[3px] text-[8px] pointer-events-none filter grayscale">
+                                    {poiIcon}
+                                </div>
                             </div>
                         </Marker>
                     );
