@@ -5,6 +5,23 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-12-12
+
+### Added
+
+- **Brazilian City Presets**: Two new literary-themed presets from Brazil
+  - Salvador - Dona Flor and Her Two Husbands (Jorge Amado)
+  - Rio de Janeiro - Dom Casmurro (Machado de Assis)
+- **Collapsible Projects Panel**: Projects & Presets section now has a clickable header to expand/collapse
+- **"+ New Meet" Button**: Quick action to clear all locations and start fresh
+- **"Clear All" Button**: Appears next to locations label when locations exist
+- **clearAllLocations Store Action**: New Zustand action to reset all locations, isochrones, and venues
+
+### Changed
+
+- Projects & Presets panel now opens by default on first load
+- Removed separate OPTIONS/CLOSE button from header (replaced with collapsible panel)
+
 ## [1.5.0] - 2025-12-12
 
 ### Added
