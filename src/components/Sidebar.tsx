@@ -35,6 +35,7 @@ export default function Sidebar() {
         isCalculating,
         errorMsg,
         calculateMeetingZone,
+        findOptimalMeetingPoint,
         loadProject,
         hoveredLocationId,
         setHoveredLocationId,
@@ -414,6 +415,13 @@ export default function Sidebar() {
                     >
                         {isCalculating ? "Calculating..." : "Find Sweet Spot"}
                     </button>
+                    <button
+                        onClick={() => findOptimalMeetingPoint()}
+                        disabled={isCalculating || locations.length < 2}
+                        className="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-pink-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+                    >
+                        Optimize
+                    </button>
                 </div>
 
                 {errorMsg && (
@@ -435,8 +443,8 @@ export default function Sidebar() {
                                     <div
                                         key={venue.id}
                                         className={`p-3 rounded-lg border transition-all cursor-pointer ${isHovered
-                                                ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
-                                                : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
+                                            ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
+                                            : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
                                             }`}
                                         onMouseEnter={() => {
                                             setHoveredVenueId(venue.id);
