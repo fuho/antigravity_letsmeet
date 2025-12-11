@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { Share2, Copy, X, Check } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import { PRESETS, Project } from "@/data/presets";
@@ -37,38 +38,40 @@ export default function Sidebar() {
         importFromShareString
     } = useStore();
 
-    // Check for share URL on mount
+    // Track if we're currently loading from URL to prevent sync loop
+    const isLoadingFromUrl = React.useRef(false);
+
+    // Load from URL on mount
     useEffect(() => {
-        // 1. Check for share param
         const params = new URLSearchParams(window.location.search);
         const shareString = params.get('share');
 
         if (shareString) {
+            // Load from share link - don't clear URL!
+            isLoadingFromUrl.current = true;
             const success = importFromShareString(shareString);
             if (success) {
-                // Clear URL to clean up
-                window.history.replaceState({}, '', window.location.pathname);
-                // Auto calc after a moment
-                setTimeout(() => calculateMeetingZone(), 1000);
-                return; // Skip loading saved/presets if shared
+                setTimeout(() => {
+                    calculateMeetingZone();
+                    isLoadingFromUrl.current = false;
+                }, 1000);
+                return; // Don't load Prague
             }
+            isLoadingFromUrl.current = false;
         }
 
-        // 2. Load saved projects
+        // Load saved projects list
         const saved = localStorage.getItem("mpf_projects");
-        let hasSaved = false;
         if (saved) {
             try {
-                const parsed = JSON.parse(saved);
-                setSavedProjects(parsed);
-                hasSaved = parsed.length > 0;
+                setSavedProjects(JSON.parse(saved));
             } catch (e) {
                 console.error("Failed to parse saved projects", e);
             }
         }
 
-        // 3. Default to Prague if nothing loaded
-        if (locations.length === 0) {
+        // Default to Prague only if no share param
+        if (!shareString && locations.length === 0) {
             const prague = PRESETS.find(p => p.id === "prague-lightness");
             if (prague) {
                 loadProject(prague.locations, prague.maxTravelTime || 15, prague.id);
@@ -77,6 +80,19 @@ export default function Sidebar() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // Run once on mount
+
+    // Sync state to URL whenever locations or maxTravelTime change
+    // BUT skip if we're currently loading from URL
+    useEffect(() => {
+        if (isLoadingFromUrl.current) return;
+
+        if (locations.length > 0) {
+            const shareString = getShareString();
+            const newUrl = `${window.location.pathname}?share=${encodeURIComponent(shareString)}`;
+            window.history.replaceState({}, '', newUrl);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locations, maxTravelTime]);
 
     // Auto-Calculate on Slider Change (Debounced)
     useEffect(() => {
@@ -191,17 +207,80 @@ export default function Sidebar() {
         }
     };
 
-    const handleShare = async () => {
-        const shareString = getShareString();
-        const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(shareString)}`;
+    // Share Modal State
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareUrl, setShareUrl] = useState("");
+    const [copied, setCopied] = useState(false);
 
+    const handleShare = () => {
+        // URL is always up-to-date, just use current location
+        const url = window.location.href;
+        setShareUrl(url);
+        setShowShareModal(true);
+        setCopied(false);
+    };
+
+    const copyToClipboard = async () => {
         try {
-            await navigator.clipboard.writeText(url);
-            alert("Shareable link copied to clipboard!");
+            await navigator.clipboard.writeText(shareUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy: ', err);
-            prompt("Copy this link:", url);
+            console.error('Failed to copy', err);
         }
+    };
+
+    const renderShareModal = () => {
+        if (!showShareModal) return null;
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="bg-gray-900 border border-purple-500/30 rounded-xl p-6 shadow-2xl max-w-md w-full relative animate-in fade-in zoom-in-95 duration-200">
+                    <button
+                        onClick={() => setShowShareModal(false)}
+                        className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+
+                    <div className="flex items-center space-x-3 mb-4">
+                        <div className="p-3 bg-purple-500/10 rounded-full text-purple-400">
+                            <Share2 size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Share Project</h3>
+                            <p className="text-gray-400 text-sm">Anyone with this link can view this project.</p>
+                        </div>
+                    </div>
+
+                    <div className="relative mb-6">
+                        <input
+                            type="text"
+                            readOnly
+                            value={shareUrl}
+                            onClick={(e) => e.currentTarget.select()}
+                            className="w-full bg-black/50 border border-gray-700 rounded-lg py-3 px-4 pr-12 text-gray-300 text-sm focus:outline-none focus:border-purple-500 transition-colors"
+                        />
+                        <button
+                            onClick={copyToClipboard}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all ${copied ? 'bg-green-500/20 text-green-400' : 'hover:bg-gray-700 text-gray-400 hover:text-white'
+                                }`}
+                            title="Copy to clipboard"
+                        >
+                            {copied ? <Check size={18} /> : <Copy size={18} />}
+                        </button>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <button
+                            onClick={() => setShowShareModal(false)}
+                            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name;
@@ -276,36 +355,41 @@ export default function Sidebar() {
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
             {/* Header / Project Bar */}
             <div className="mb-6 border-b border-gray-800 pb-4">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-                            Let's Meet
-                        </h1>
-                        <div className="flex space-x-3">
-                            <button
-                                onClick={handleShare}
-                                className="text-xs text-purple-400 hover:text-purple-300 font-bold transition-colors flex items-center"
-                                title="Copy link to clipboard"
-                            >
-                                SHARE
-                            </button>
-                            <button
-                                onClick={() => setShowProjectControls(!showProjectControls)}
-                                className="text-xs text-gray-400 hover:text-white transition-colors"
-                            >
-                                {showProjectControls ? "Close" : (activeProjectId ? "Options" : "Projects")}
-                            </button>
-                        </div>
-                        {activeProjectName && (
-                            <span className="text-xs text-gray-400 block mt-1">
-                                Editing: <span className="text-purple-300">{activeProjectName}</span>
-                            </span>
-                        )}
+                <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                        Let's Meet
+                    </h1>
+
+                    <div className="flex items-center space-x-2">
+                        <button
+                            onClick={handleShare}
+                            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-md transition-all text-xs font-bold shadow-lg shadow-purple-900/20"
+                        >
+                            <Share2 size={14} />
+                            <span>SHARE</span>
+                        </button>
+                        <button
+                            onClick={() => setShowProjectControls(!showProjectControls)}
+                            className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-md transition-all text-xs font-bold"
+                        >
+                            {showProjectControls ? "CLOSE" : (activeProjectId ? "OPTIONS" : "PROJECTS")}
+                        </button>
                     </div>
                 </div>
 
-                {/* Project Controls (Always Visible) */}
-                <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3">
+                {activeProjectName ? (
+                    <div className="text-xs text-gray-400 flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-2"></span>
+                        Editing: <span className="text-purple-300 ml-1 font-medium">{activeProjectName}</span>
+                    </div>
+                ) : (
+                    <div className="text-xs text-gray-500 italic">Unsaved Draft</div>
+                )}
+            </div>
+
+            {/* Project Controls */}
+            {showProjectControls && (
+                <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 space-y-3 mb-6">
                     {/* Load Project */}
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 mb-1">Load Preset / Saved</label>
@@ -359,7 +443,7 @@ export default function Sidebar() {
                         </button>
                     </div>
                 </div>
-            </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-6">
                 {/* Controls Section */}
@@ -577,6 +661,10 @@ export default function Sidebar() {
                     </div>
                 )}
             </div>
+
+            {/* Modals */}
+            {renderShareModal()}
+            {renderDeleteModal()}
         </div >
     );
 }
