@@ -14,7 +14,7 @@ interface UseProjectManagerOptions {
  */
 export function useProjectManager({ savedProjects, setSavedProjects }: UseProjectManagerOptions) {
     const [projectName, setProjectName] = useState("");
-    const [showProjectControls, setShowProjectControls] = useState(false);
+    const [showProjectControls, setShowProjectControls] = useState(true);
     const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
 
     const {

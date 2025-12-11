@@ -18,6 +18,7 @@ export interface LocationSlice {
     updateLocationPosition: (id: string, lng: number, lat: number) => Promise<void>;
     updateLocationNameAndAddress: (id: string, name?: string, address?: string) => void;
     removeLocation: (id: string) => void;
+    clearAllLocations: () => void;
 }
 
 export const createLocationSlice: StateCreator<AppState, [], [], LocationSlice> = (set, get) => ({
@@ -105,5 +106,13 @@ export const createLocationSlice: StateCreator<AppState, [], [], LocationSlice> 
                 isochrones: newIsochrones,
                 meetingArea: state.locations.length <= 1 ? null : state.meetingArea, // Clear if < 2
             };
+        }),
+
+    clearAllLocations: () =>
+        set({
+            locations: [],
+            isochrones: {},
+            meetingArea: null,
+            venues: [],
         }),
 });

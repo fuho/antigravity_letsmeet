@@ -46,6 +46,7 @@ export default function Sidebar() {
         selectedPOITypes,
         setSelectedPOITypes,
         refreshPOIs,
+        clearAllLocations,
     } = useStore();
 
     // URL sync and localStorage management
@@ -167,25 +168,13 @@ export default function Sidebar() {
                         Let&apos;s Meet
                     </h1>
 
-                    <div className="flex items-center space-x-2">
-                        <button
-                            onClick={handleShare}
-                            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-md transition-all text-xs font-bold shadow-lg shadow-purple-900/20"
-                        >
-                            <Share2 size={14} />
-                            <span>SHARE</span>
-                        </button>
-                        <button
-                            onClick={() => setShowProjectControls(!showProjectControls)}
-                            className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-md transition-all text-xs font-bold"
-                        >
-                            {showProjectControls
-                                ? "CLOSE"
-                                : activeProjectId
-                                    ? "OPTIONS"
-                                    : "PROJECTS"}
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleShare}
+                        className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-md transition-all text-xs font-bold shadow-lg shadow-purple-900/20"
+                    >
+                        <Share2 size={14} />
+                        <span>SHARE</span>
+                    </button>
                 </div>
 
                 {activeProjectName ? (
@@ -213,6 +202,8 @@ export default function Sidebar() {
                 onUpdateProject={updateActiveProject}
                 onSaveProject={saveCurrentProject}
                 onProjectNameChange={setProjectName}
+                onToggle={() => setShowProjectControls(!showProjectControls)}
+                onNewMeet={clearAllLocations}
             />
 
             <div className="flex-1 overflow-y-auto space-y-6">
@@ -275,9 +266,19 @@ export default function Sidebar() {
 
                 {/* Locations Section */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                        from locations ({locations.length})
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-400">
+                            from locations ({locations.length})
+                        </label>
+                        {locations.length > 0 && (
+                            <button
+                                onClick={clearAllLocations}
+                                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                            >
+                                Clear All
+                            </button>
+                        )}
+                    </div>
 
                     <LocationList
                         locations={locations}
