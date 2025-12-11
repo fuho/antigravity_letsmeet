@@ -351,10 +351,12 @@ export const useStore = create<AppState>((set, get) => ({
                     setMeetingArea(intersection.geometry);
 
                     // 3. Find POIs across the entire sweet spot area using multi-point search
-                    // @ts-ignore - Turf centroid returns Feature<Point>
-                    const center = turf.centroid(intersection).geometry.coordinates; // [lng, lat]
+                    // Type assertion: we've verified geometry exists above
+                    const validIntersection = intersection as GeoJSON.Feature<GeoJSON.Polygon>;
+
+                    const center = turf.centroid(validIntersection).geometry.coordinates; // [lng, lat]
                     // Extract bounding box from the intersection polygon
-                    const bbox = turf.bbox(intersection) as [number, number, number, number];
+                    const bbox = turf.bbox(validIntersection) as [number, number, number, number];
 
                     // Multi-point search strategy
                     const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -382,7 +384,7 @@ export const useStore = create<AppState>((set, get) => ({
 
                     const filteredPois = uniquePois.filter(poi => {
                         const point = turf.point(poi.center);
-                        return turf.booleanPointInPolygon(point, intersection);
+                        return turf.booleanPointInPolygon(point, validIntersection);
                     });
 
                     set({ venues: filteredPois.slice(0, 50) });
@@ -453,9 +455,11 @@ export const useStore = create<AppState>((set, get) => ({
                         set({ isochrones: newIsochrones });
 
                         // Find POIs across the entire sweet spot area using multi-point search
-                        // @ts-ignore
-                        const center = turf.centroid(currentIntersection).geometry.coordinates;
-                        const bbox = turf.bbox(currentIntersection) as [number, number, number, number];
+                        // Type assertion: currentIntersection is guaranteed to be non-null here
+                        const validIntersection = currentIntersection as GeoJSON.Feature<GeoJSON.Polygon>;
+
+                        const center = turf.centroid(validIntersection).geometry.coordinates;
+                        const bbox = turf.bbox(validIntersection) as [number, number, number, number];
 
                         // Multi-point search strategy
                         const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -483,7 +487,7 @@ export const useStore = create<AppState>((set, get) => ({
 
                         const filteredPois = uniquePois.filter(poi => {
                             const point = turf.point(poi.center);
-                            return turf.booleanPointInPolygon(point, currentIntersection);
+                            return turf.booleanPointInPolygon(point, validIntersection);
                         });
 
                         set({ venues: filteredPois.slice(0, 50) });
