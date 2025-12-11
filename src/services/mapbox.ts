@@ -33,7 +33,7 @@ export async function searchNearby(category: string, lng: number, lat: number, b
     // https://docs.mapbox.com/api/search/search-box/#category-search
     let endpoint = `https://api.mapbox.com/search/searchbox/v1/category/${encodeURIComponent(
         category
-    )}?access_token=${MAPBOX_TOKEN}&proximity=${lng},${lat}&limit=10&language=en`;
+    )}?access_token=${MAPBOX_TOKEN}&proximity=${lng},${lat}&limit=25&language=en`;
 
     // Add bounding box if provided (helps constrain results to sweet spot area)
     if (bbox) {
