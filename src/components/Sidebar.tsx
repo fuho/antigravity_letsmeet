@@ -4,22 +4,20 @@ import React, { useState, useEffect } from "react";
 import { Share2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
-import { PRESETS, Project } from "@/data/presets";
 import ShareModal from "./sidebar/ShareModal";
 import DeleteModal from "./sidebar/DeleteModal";
 import UpdateModal from "./sidebar/UpdateModal";
 import POITypeSelector from "./sidebar/POITypeSelector";
 import ProjectControls from "./sidebar/ProjectControls";
 import LocationList from "./sidebar/LocationList";
+import VenueList from "./sidebar/VenueList";
+import AddressSearchInput from "./sidebar/AddressSearchInput";
+import { useUrlSync } from "./sidebar/useUrlSync";
+import { useProjectManager } from "./sidebar/useProjectManager";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
     const [suggestions, setSuggestions] = useState<GeocodingFeature[]>([]);
-
-    // Project Management State
-    const [savedProjects, setSavedProjects] = useState<Project[]>([]);
-    const [projectName, setProjectName] = useState("");
-    const [showProjectControls, setShowProjectControls] = useState(false);
 
     // Debounce timer for slider
     const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -36,75 +34,34 @@ export default function Sidebar() {
         errorMsg,
         calculateMeetingZone,
         findOptimalMeetingPoint,
-        loadProject,
         hoveredLocationId,
         setHoveredLocationId,
         hoveredVenueId,
         setHoveredVenueId,
         activeProjectId,
-        setActiveProjectId,
         getShareString,
-        importFromShareString,
         selectedPOITypes,
         setSelectedPOITypes,
-        refreshPOIs
+        refreshPOIs,
     } = useStore();
 
-    // Track if we're currently loading from URL to prevent sync loop
-    const isLoadingFromUrl = React.useRef(false);
+    // URL sync and localStorage management
+    const { savedProjects, setSavedProjects } = useUrlSync();
 
-    // Load from URL on mount
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const shareString = params.get('share');
-
-        if (shareString) {
-            // Load from share link - don't clear URL!
-            isLoadingFromUrl.current = true;
-            const success = importFromShareString(shareString);
-            if (success) {
-                setTimeout(() => {
-                    calculateMeetingZone();
-                    isLoadingFromUrl.current = false;
-                }, 1000);
-                return; // Don't load Prague
-            }
-            isLoadingFromUrl.current = false;
-        }
-
-        // Load saved projects list
-        const saved = localStorage.getItem("mpf_projects");
-        if (saved) {
-            try {
-                setSavedProjects(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse saved projects", e);
-            }
-        }
-
-        // Default to Prague only if no share param
-        if (!shareString && locations.length === 0) {
-            const prague = PRESETS.find(p => p.id === "prague-lightness");
-            if (prague) {
-                loadProject(prague.locations, prague.maxTravelTime || 15, prague.id);
-                setTimeout(() => calculateMeetingZone(), 800);
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run once on mount
-
-    // Sync state to URL whenever locations or maxTravelTime change
-    // BUT skip if we're currently loading from URL
-    useEffect(() => {
-        if (isLoadingFromUrl.current) return;
-
-        if (locations.length > 0) {
-            const shareString = getShareString();
-            const newUrl = `${window.location.pathname}?share=${encodeURIComponent(shareString)}`;
-            window.history.replaceState({}, '', newUrl);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locations, maxTravelTime, selectedPOITypes]);
+    // Project management operations
+    const {
+        projectName,
+        setProjectName,
+        showProjectControls,
+        setShowProjectControls,
+        showUpdateConfirmation,
+        setShowUpdateConfirmation,
+        activeProjectName,
+        saveCurrentProject,
+        updateActiveProject,
+        confirmUpdateProject,
+        loadSelectedProject,
+    } = useProjectManager({ savedProjects, setSavedProjects });
 
     // Auto-Calculate on Slider Change (Debounced)
     useEffect(() => {
@@ -112,17 +69,16 @@ export default function Sidebar() {
             if (debounceTimer) clearTimeout(debounceTimer);
             const timer = setTimeout(() => {
                 calculateMeetingZone();
-            }, 800); // 800ms delay after sliding stops
+            }, 800);
             setDebounceTimer(timer);
         }
         return () => {
             if (debounceTimer) clearTimeout(debounceTimer);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [maxTravelTime]); // Only trigger on time change, not locations (locations trigger their own logic maybe, or manual)
+    }, [maxTravelTime]);
 
-    const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
+    const handleQueryChange = async (val: string) => {
         setQuery(val);
         if (val.length > 2) {
             const results = await searchAddress(val);
@@ -141,82 +97,6 @@ export default function Sidebar() {
         });
         setQuery("");
         setSuggestions([]);
-    };
-
-    const handleCalculate = async () => {
-        await calculateMeetingZone();
-    };
-
-    const saveCurrentProject = () => {
-        if (!projectName.trim() || locations.length === 0) return;
-
-        const newProject: Project = {
-            id: crypto.randomUUID(),
-            name: projectName,
-            maxTravelTime: maxTravelTime,
-            locations: locations.map(l => ({
-                id: l.id,
-                name: l.name,
-                address: l.address,
-                coordinates: l.coordinates,
-                color: l.color
-            }))
-        };
-
-        const updated = [...savedProjects, newProject];
-        setSavedProjects(updated);
-        localStorage.setItem("mpf_projects", JSON.stringify(updated));
-
-        setProjectName("");
-        setActiveProjectId(newProject.id); // Set as active
-        alert("Project saved!");
-    };
-
-    const updateActiveProject = () => {
-        if (!activeProjectId) return;
-        setShowUpdateConfirmation(true);
-    };
-
-    const confirmUpdateProject = () => {
-        if (!activeProjectId) return;
-
-        const updatedLocations = locations.map(l => ({
-            id: l.id,
-            name: l.name,
-            address: l.address,
-            coordinates: l.coordinates,
-            color: l.color
-        }));
-
-        const updatedProjects = savedProjects.map(p =>
-            p.id === activeProjectId
-                ? { ...p, locations: updatedLocations, maxTravelTime }
-                : p
-        );
-
-        setSavedProjects(updatedProjects);
-        localStorage.setItem("mpf_projects", JSON.stringify(updatedProjects));
-        setShowUpdateConfirmation(false);
-        alert("Project updated!");
-    };
-
-    const loadSelectedProject = (projectId: string) => {
-        if (!projectId) return;
-
-        // Check presets first
-        const preset = PRESETS.find(p => p.id === projectId);
-        if (preset) {
-            loadProject(preset.locations, preset.maxTravelTime || 30, preset.id);
-            setTimeout(() => calculateMeetingZone(), 800);
-            return;
-        }
-
-        // Then check saved projects
-        const saved = savedProjects.find(p => p.id === projectId);
-        if (saved) {
-            loadProject(saved.locations, saved.maxTravelTime || 30, saved.id);
-            setTimeout(() => calculateMeetingZone(), 800);
-        }
     };
 
     // Share Modal State
@@ -239,16 +119,20 @@ export default function Sidebar() {
     };
 
     // Inline Editing State
-    const [editingItem, setEditingItem] = useState<{ id: string; field: 'name' | 'address' } | null>(null);
+    const [editingItem, setEditingItem] = useState<{
+        id: string;
+        field: "name" | "address";
+    } | null>(null);
     const [editValue, setEditValue] = useState("");
 
     // Delete Confirmation State
     const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
 
-    // Update Confirmation State
-    const [showUpdateConfirmation, setShowUpdateConfirmation] = useState(false);
-
-    const startEditing = (id: string, field: 'name' | 'address', currentValue: string) => {
+    const startEditing = (
+        id: string,
+        field: "name" | "address",
+        currentValue: string
+    ) => {
         setEditingItem({ id, field });
         setEditValue(currentValue || "");
     };
@@ -261,14 +145,12 @@ export default function Sidebar() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
+        if (e.key === "Enter") {
             saveEdit();
-        } else if (e.key === 'Escape') {
+        } else if (e.key === "Escape") {
             setEditingItem(null);
         }
     };
-
-    const activeProjectName = savedProjects.find(p => p.id === activeProjectId)?.name || null;
 
     return (
         <div className="absolute top-0 right-0 h-full w-96 bg-black/80 backdrop-blur-md border-l border-gray-800 text-white p-6 shadow-2xl z-10 flex flex-col pointer-events-auto">
@@ -276,10 +158,10 @@ export default function Sidebar() {
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <div className="flex items-center justify-between mb-2">
                     <h1
-                        onClick={() => window.location.href = '/'}
+                        onClick={() => (window.location.href = "/")}
                         className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 cursor-pointer hover:opacity-80 transition-opacity"
                     >
-                        Let's Meet
+                        Let&apos;s Meet
                     </h1>
 
                     <div className="flex items-center space-x-2">
@@ -294,7 +176,11 @@ export default function Sidebar() {
                             onClick={() => setShowProjectControls(!showProjectControls)}
                             className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-md transition-all text-xs font-bold"
                         >
-                            {showProjectControls ? "CLOSE" : (activeProjectId ? "OPTIONS" : "PROJECTS")}
+                            {showProjectControls
+                                ? "CLOSE"
+                                : activeProjectId
+                                    ? "OPTIONS"
+                                    : "PROJECTS"}
                         </button>
                     </div>
                 </div>
@@ -302,7 +188,10 @@ export default function Sidebar() {
                 {activeProjectName ? (
                     <div className="text-xs text-gray-400 flex items-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-2"></span>
-                        Editing: <span className="text-purple-300 ml-1 font-medium">{activeProjectName}</span>
+                        Editing:{" "}
+                        <span className="text-purple-300 ml-1 font-medium">
+                            {activeProjectName}
+                        </span>
                     </div>
                 ) : (
                     <div className="text-xs text-gray-500 italic">Unsaved Draft</div>
@@ -331,7 +220,9 @@ export default function Sidebar() {
                         selectedTypes={selectedPOITypes}
                         onToggleType={async (typeId) => {
                             if (selectedPOITypes.includes(typeId)) {
-                                setSelectedPOITypes(selectedPOITypes.filter(id => id !== typeId));
+                                setSelectedPOITypes(
+                                    selectedPOITypes.filter((id) => id !== typeId)
+                                );
                             } else {
                                 setSelectedPOITypes([...selectedPOITypes, typeId]);
                             }
@@ -340,7 +231,8 @@ export default function Sidebar() {
                     />
 
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                        Max Travel Time: <span className="text-white font-bold">{maxTravelTime} min</span>
+                        Max Travel Time:{" "}
+                        <span className="text-white font-bold">{maxTravelTime} min</span>
                     </label>
                     <input
                         type="range"
@@ -360,31 +252,13 @@ export default function Sidebar() {
                         Locations ({locations.length})
                     </label>
 
-                    {/* Search Bar */}
-                    <div className="relative mb-3">
-                        <input
-                            type="text"
-                            placeholder="Search for a location..."
-                            className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 transition-colors"
-                            value={query}
-                            onChange={handleSearch}
-                        />
-                        {suggestions.length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20">
-                                {suggestions.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-gray-300 border-b border-gray-800 last:border-b-0"
-                                        onClick={() => selectLocation(item)}
-                                    >
-                                        {item.place_name}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <AddressSearchInput
+                        query={query}
+                        suggestions={suggestions}
+                        onQueryChange={handleQueryChange}
+                        onSelectLocation={selectLocation}
+                    />
 
-                    {/* Location List */}
                     <LocationList
                         locations={locations}
                         hoveredLocationId={hoveredLocationId}
@@ -431,38 +305,18 @@ export default function Sidebar() {
                 )}
 
                 {/* Venues Section */}
-                {venues.length > 0 && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-2">
-                            Suggested Venues ({venues.length})
-                        </label>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {venues.map((venue) => {
-                                const isHovered = hoveredVenueId === venue.id;
-                                return (
-                                    <div
-                                        key={venue.id}
-                                        className={`p-3 rounded-lg border transition-all cursor-pointer ${isHovered
-                                            ? 'bg-gray-800 border-purple-500/50 shadow-lg shadow-purple-900/20'
-                                            : 'bg-gray-900/50 border-gray-700 hover:bg-gray-800'
-                                            }`}
-                                        onMouseEnter={() => {
-                                            setHoveredVenueId(venue.id);
-                                            useStore.getState().setHoveredVenueId(venue.id);
-                                        }}
-                                        onMouseLeave={() => {
-                                            setHoveredVenueId(null);
-                                            useStore.getState().setHoveredVenueId(null);
-                                        }}
-                                    >
-                                        <div className="font-medium text-white text-sm mb-1">{venue.text}</div>
-                                        <div className="text-xs text-gray-400">{venue.place_name}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                <VenueList
+                    venues={venues}
+                    hoveredVenueId={hoveredVenueId}
+                    onHoverStart={(id) => {
+                        setHoveredVenueId(id);
+                        useStore.getState().setHoveredVenueId(id);
+                    }}
+                    onHoverEnd={() => {
+                        setHoveredVenueId(null);
+                        useStore.getState().setHoveredVenueId(null);
+                    }}
+                />
             </div>
 
             {/* Modals */}

@@ -64,7 +64,7 @@ export default function ProjectControls({
                         onClick={onUpdateProject}
                         className="w-full bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-2 rounded transition-colors font-medium"
                     >
-                        Update "{activeProjectName}"
+                        Update &quot;{activeProjectName}&quot;
                     </button>
                 </div>
             )}

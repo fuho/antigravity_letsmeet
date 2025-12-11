@@ -5,6 +5,30 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-11
+
+### Added
+
+- **ESLint Configuration**: Fixed broken ESLint config (replaced flat config with `.eslintrc.js`)
+- **Prettier Integration**: Added `.prettierrc` with `format` and `format:check` scripts
+- **Unit Tests**: Added 44 new tests for utility functions
+  - `geometry.test.ts` - intersection, bounding box, centroid, point-in-polygon
+  - `share.test.ts` - encode/decode roundtrip, unicode handling
+  - `poi.test.ts` - search points, deduplication, polygon filtering
+
+### Changed
+
+- **Sidebar Refactoring**: Reduced from 496 to 349 lines (30% smaller)
+  - Extracted `useUrlSync` hook for URL sync and initialization
+  - Extracted `useProjectManager` hook for project save/load/update
+  - Extracted `VenueList` component
+  - Extracted `AddressSearchInput` component
+
+### Fixed
+
+- Removed conflicting `@tailwindcss/postcss` v4 package (was causing white screen)
+- Fixed unescaped entities in JSX (ESLint react/no-unescaped-entities)
+
 ## [1.1] - 2025-12-11
 
 ### Added

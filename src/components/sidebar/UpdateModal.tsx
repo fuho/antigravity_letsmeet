@@ -20,7 +20,7 @@ export default function UpdateModal({
             <div className="bg-gray-900 border border-purple-500/30 rounded-xl p-6 shadow-2xl max-w-md w-full">
                 <h3 className="text-lg font-bold text-white mb-2">Update Project?</h3>
                 <p className="text-gray-400 text-sm mb-6">
-                    This will overwrite the existing project <span className="text-purple-300 font-medium">"{projectName}"</span> with your current changes.
+                    This will overwrite the existing project <span className="text-purple-300 font-medium">&quot;{projectName}&quot;</span> with your current changes.
                 </p>
                 <div className="flex space-x-3">
                     <button

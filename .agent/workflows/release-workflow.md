@@ -62,5 +62,6 @@ This workflow describes the process for releasing a new version of the Meeting P
 
 ## Notes
 
+- **IMPORTANT**: The current tagging scheme is inconsistent (`1.0`, `v1.2`). Please transition to strict Semantic Versioning (e.g., `v1.0.0`) in future releases.
 - Always check `git status` before committing to ensure you are adding the intended files.
 - Use semantic versioning (MAJOR.MINOR.PATCH).
