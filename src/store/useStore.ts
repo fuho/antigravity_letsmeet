@@ -48,6 +48,8 @@ interface AppState {
     // Hover State
     hoveredLocationId: string | null;
     setHoveredLocationId: (id: string | null) => void;
+    hoveredVenueId: string | null;
+    setHoveredVenueId: (id: string | null) => void;
 
     // Active Project State
     activeProjectId: string | null;
@@ -66,10 +68,12 @@ export const useStore = create<AppState>((set, get) => ({
     isCalculating: false,
     errorMsg: null,
     hoveredLocationId: null,
+    hoveredVenueId: null,
     activeProjectId: null,
     selectedPOITypes: DEFAULT_POI_TYPES,
 
     setHoveredLocationId: (id) => set({ hoveredLocationId: id }),
+    setHoveredVenueId: (id) => set({ hoveredVenueId: id }),
     setActiveProjectId: (id) => set({ activeProjectId: id }),
     setSelectedPOITypes: (types) => set({ selectedPOITypes: types }),
 

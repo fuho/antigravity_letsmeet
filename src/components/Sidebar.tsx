@@ -33,12 +33,15 @@ export default function Sidebar() {
         loadProject,
         hoveredLocationId,
         setHoveredLocationId,
+        hoveredVenueId,
+        setHoveredVenueId,
         activeProjectId,
         setActiveProjectId,
         getShareString,
         importFromShareString,
         selectedPOITypes,
-        setSelectedPOITypes
+        setSelectedPOITypes,
+        refreshPOIs
     } = useStore();
 
     // Track if we're currently loading from URL to prevent sync loop
@@ -359,7 +362,10 @@ export default function Sidebar() {
             {/* Header / Project Bar */}
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                    <h1
+                        onClick={() => window.location.href = '/'}
+                        className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 cursor-pointer hover:opacity-80 transition-opacity"
+                    >
                         Let's Meet
                     </h1>
 
@@ -462,12 +468,14 @@ export default function Sidebar() {
                                 return (
                                     <button
                                         key={poiType.id}
-                                        onClick={() => {
+                                        onClick={async () => {
                                             if (isSelected) {
                                                 setSelectedPOITypes(selectedPOITypes.filter(id => id !== poiType.id));
                                             } else {
                                                 setSelectedPOITypes([...selectedPOITypes, poiType.id]);
                                             }
+                                            // Refresh POIs to update markers on map
+                                            await refreshPOIs();
                                         }}
                                         className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all text-sm ${isSelected
                                             ? 'bg-purple-600/20 border-purple-500 text-white'
@@ -686,12 +694,23 @@ export default function Sidebar() {
                                         <p className="text-sm text-gray-500">Searching for cafes...</p>
                                     ) : (
                                         <ul className="space-y-2">
-                                            {venues.map(venue => (
-                                                <li key={venue.id} className="bg-gray-800 p-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                                                    <div className="font-medium">{venue.text}</div>
-                                                    <div className="text-xs text-gray-500">{venue.place_name}</div>
-                                                </li>
-                                            ))}
+                                            {venues.map(venue => {
+                                                const isHovered = hoveredVenueId === venue.id;
+                                                return (
+                                                    <li
+                                                        key={venue.id}
+                                                        className={`p-2 rounded text-sm transition-all cursor-pointer ${isHovered
+                                                                ? 'bg-purple-600/20 border border-purple-500 text-white shadow-lg shadow-purple-900/20'
+                                                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                            }`}
+                                                        onMouseEnter={() => setHoveredVenueId(venue.id)}
+                                                        onMouseLeave={() => setHoveredVenueId(null)}
+                                                    >
+                                                        <div className="font-medium">{venue.text}</div>
+                                                        <div className="text-xs text-gray-500">{venue.place_name}</div>
+                                                    </li>
+                                                );
+                                            })}
                                         </ul>
                                     )}
                                 </div>
