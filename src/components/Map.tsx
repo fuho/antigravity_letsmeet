@@ -5,6 +5,7 @@ import ReactMapGL, { Marker, NavigationControl, Source, Layer, Popup } from "rea
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
+import { POI_TYPES } from "@/constants/poiTypes";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -16,8 +17,10 @@ export default function Map() {
         isochrones,
         addLocationByCoordinates,
         hoveredLocationId,
+        hoveredVenueId,
         updateLocationPosition,
-        removeLocation
+        removeLocation,
+        venues
     } = useStore();
 
     // Auto-center map when locations/meeting area change
@@ -218,6 +221,65 @@ export default function Map() {
                     );
                 })}
 
+                {/* POI Markers */}
+                {venues.map((venue) => {
+                    // Look up POI type info from the imported POI_TYPES
+                    const typeInfo = POI_TYPES.find(t => t.id === venue.poiType);
+                    const poiIcon = typeInfo?.icon || '📍';
+                    const poiColor = typeInfo?.color || '#9333ea';
+                    const isHovered = hoveredVenueId === venue.id;
+
+                    return (
+                        <Marker
+                            key={venue.id}
+                            longitude={venue.center[0]}
+                            latitude={venue.center[1]}
+                            anchor="bottom"
+                            onClick={(e) => {
+                                // Prevent location creation when clicking POI
+                                e.originalEvent.stopPropagation();
+                                e.originalEvent.preventDefault();
+                                // Set as hovered to show popup
+                                useStore.getState().setHoveredVenueId(venue.id);
+                            }}
+                        >
+                            <div
+                                className="relative flex items-center justify-center cursor-pointer"
+                                onMouseEnter={() => {
+                                    useStore.getState().setHoveredVenueId(venue.id);
+                                }}
+                                onMouseLeave={() => {
+                                    useStore.getState().setHoveredVenueId(null);
+                                }}
+                            >
+                                {/* POI Pin with type-specific color */}
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="20"
+                                    height="20"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    fill={poiColor}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className={`text-white drop-shadow-lg transition-all ${isHovered ? 'scale-125 brightness-125' : 'hover:scale-110'
+                                        }`}
+                                    style={isHovered ? {
+                                        filter: `drop-shadow(0 0 8px ${poiColor})`,
+                                    } : {}}
+                                >
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" fill="white" />
+                                </svg>
+                                {/* Small icon in center */}
+                                <div className="absolute top-[3px] text-[8px] pointer-events-none filter grayscale">
+                                    {poiIcon}
+                                </div>
+                            </div>
+                        </Marker>
+                    );
+                })}
+
                 {/* Popup for hovered location */}
                 {hoveredLocationId && (() => {
                     const loc = locations.find(l => l.id === hoveredLocationId);
@@ -268,6 +330,37 @@ export default function Map() {
                                     <div className={`text-xs leading-relaxed ${loc.name ? 'text-gray-300' : 'text-white font-medium'}`}>
                                         {formatAddress(loc.address)}
                                     </div>
+                                </div>
+                            </div>
+                        </Popup>
+                    );
+                })()}
+
+                {/* Popup for hovered venue (POI) */}
+                {hoveredVenueId && (() => {
+                    const venue = venues.find(v => v.id === hoveredVenueId);
+                    if (!venue) return null;
+
+                    return (
+                        <Popup
+                            longitude={venue.center[0]}
+                            latitude={venue.center[1]}
+                            closeButton={false}
+                            closeOnClick={false}
+                            anchor="bottom"
+                            offset={[0, -25]}
+                            className="poi-popup"
+                        >
+                            <div
+                                className="bg-gray-900/90 backdrop-blur-sm border border-purple-500/50 rounded-md p-3 shadow-lg min-w-[200px] max-w-[240px]"
+                                onMouseEnter={() => useStore.getState().setHoveredVenueId(venue.id)}
+                                onMouseLeave={() => useStore.getState().setHoveredVenueId(null)}
+                            >
+                                <div className="font-semibold text-white text-sm mb-1">
+                                    {venue.text}
+                                </div>
+                                <div className="text-xs text-gray-300 leading-relaxed">
+                                    {venue.place_name}
                                 </div>
                             </div>
                         </Popup>

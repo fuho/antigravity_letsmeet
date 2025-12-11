@@ -5,6 +5,7 @@ import { Share2, Copy, X, Check } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import { PRESETS, Project } from "@/data/presets";
+import { POI_TYPES } from "@/constants/poiTypes";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
@@ -32,10 +33,15 @@ export default function Sidebar() {
         loadProject,
         hoveredLocationId,
         setHoveredLocationId,
+        hoveredVenueId,
+        setHoveredVenueId,
         activeProjectId,
         setActiveProjectId,
         getShareString,
-        importFromShareString
+        importFromShareString,
+        selectedPOITypes,
+        setSelectedPOITypes,
+        refreshPOIs
     } = useStore();
 
     // Track if we're currently loading from URL to prevent sync loop
@@ -92,7 +98,7 @@ export default function Sidebar() {
             window.history.replaceState({}, '', newUrl);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locations, maxTravelTime]);
+    }, [locations, maxTravelTime, selectedPOITypes]);
 
     // Auto-Calculate on Slider Change (Debounced)
     useEffect(() => {
@@ -356,7 +362,10 @@ export default function Sidebar() {
             {/* Header / Project Bar */}
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                    <h1
+                        onClick={() => window.location.href = '/'}
+                        className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 cursor-pointer hover:opacity-80 transition-opacity"
+                    >
                         Let's Meet
                     </h1>
 
@@ -448,6 +457,44 @@ export default function Sidebar() {
             <div className="flex-1 overflow-y-auto space-y-6">
                 {/* Controls Section */}
                 <div>
+                    {/* POI Type Selector */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-400 mb-3">
+                            Meeting Venue Types
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            {POI_TYPES.map((poiType) => {
+                                const isSelected = selectedPOITypes.includes(poiType.id);
+                                return (
+                                    <button
+                                        key={poiType.id}
+                                        onClick={async () => {
+                                            if (isSelected) {
+                                                setSelectedPOITypes(selectedPOITypes.filter(id => id !== poiType.id));
+                                            } else {
+                                                setSelectedPOITypes([...selectedPOITypes, poiType.id]);
+                                            }
+                                            // Refresh POIs to update markers on map
+                                            await refreshPOIs();
+                                        }}
+                                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg border transition-all text-sm ${isSelected
+                                            ? 'bg-purple-600/20 border-purple-500 text-white'
+                                            : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                                            }`}
+                                    >
+                                        <span className="text-lg">{poiType.icon}</span>
+                                        <span className="font-medium">{poiType.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selectedPOITypes.length === 0 && (
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                                No venue types selected. Sweet Spot will be shown without POI suggestions.
+                            </p>
+                        )}
+                    </div>
+
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                         Max Travel Time: <span className="text-white">{maxTravelTime} min</span>
                     </label>
@@ -647,12 +694,23 @@ export default function Sidebar() {
                                         <p className="text-sm text-gray-500">Searching for cafes...</p>
                                     ) : (
                                         <ul className="space-y-2">
-                                            {venues.map(venue => (
-                                                <li key={venue.id} className="bg-gray-800 p-2 rounded text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
-                                                    <div className="font-medium">{venue.text}</div>
-                                                    <div className="text-xs text-gray-500">{venue.place_name}</div>
-                                                </li>
-                                            ))}
+                                            {venues.map(venue => {
+                                                const isHovered = hoveredVenueId === venue.id;
+                                                return (
+                                                    <li
+                                                        key={venue.id}
+                                                        className={`p-2 rounded text-sm transition-all cursor-pointer ${isHovered
+                                                                ? 'bg-purple-600/20 border border-purple-500 text-white shadow-lg shadow-purple-900/20'
+                                                                : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                            }`}
+                                                        onMouseEnter={() => setHoveredVenueId(venue.id)}
+                                                        onMouseLeave={() => setHoveredVenueId(null)}
+                                                    >
+                                                        <div className="font-medium">{venue.text}</div>
+                                                        <div className="text-xs text-gray-500">{venue.place_name}</div>
+                                                    </li>
+                                                );
+                                            })}
                                         </ul>
                                     )}
                                 </div>

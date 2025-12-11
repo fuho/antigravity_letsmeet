@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { GeocodingFeature, searchNearby, reverseGeocode } from "@/services/mapbox";
+import { DEFAULT_POI_TYPES } from "@/constants/poiTypes";
 import { getIsochrone } from "@/services/isochrone";
 import * as turf from "@turf/turf";
 
@@ -23,6 +24,10 @@ interface AppState {
     isCalculating: boolean;
     errorMsg: string | null;
 
+    // POI Type Selection
+    selectedPOITypes: string[];
+    setSelectedPOITypes: (types: string[]) => void;
+
     addLocation: (loc: Location) => void;
     addLocationByCoordinates: (lng: number, lat: number) => Promise<void>;
     updateLocationPosition: (id: string, lng: number, lat: number) => Promise<void>;
@@ -35,12 +40,16 @@ interface AppState {
 
     calculateMeetingZone: () => Promise<void>;
     findOptimalMeetingPoint: () => Promise<void>;
+    searchMultiplePOITypes: (types: string[], lng: number, lat: number, bbox?: [number, number, number, number]) => Promise<GeocodingFeature[]>;
+    refreshPOIs: () => Promise<void>;
 
     loadProject: (locations: Location[], maxTime?: number, projectId?: string) => void;
 
     // Hover State
     hoveredLocationId: string | null;
     setHoveredLocationId: (id: string | null) => void;
+    hoveredVenueId: string | null;
+    setHoveredVenueId: (id: string | null) => void;
 
     // Active Project State
     activeProjectId: string | null;
@@ -59,18 +68,23 @@ export const useStore = create<AppState>((set, get) => ({
     isCalculating: false,
     errorMsg: null,
     hoveredLocationId: null,
+    hoveredVenueId: null,
     activeProjectId: null,
+    selectedPOITypes: DEFAULT_POI_TYPES,
 
     setHoveredLocationId: (id) => set({ hoveredLocationId: id }),
+    setHoveredVenueId: (id) => set({ hoveredVenueId: id }),
     setActiveProjectId: (id) => set({ activeProjectId: id }),
+    setSelectedPOITypes: (types) => set({ selectedPOITypes: types }),
 
     getShareString: () => {
-        const { locations, maxTravelTime } = get();
+        const { locations, maxTravelTime, selectedPOITypes } = get();
 
         // Compact schema
         const data = {
             v: 1, // version
             t: maxTravelTime,
+            p: selectedPOITypes, // POI types
             l: locations.map(loc => ({
                 c: loc.coordinates,
                 a: loc.address,
@@ -120,7 +134,11 @@ export const useStore = create<AppState>((set, get) => ({
                 color: item.col || '#ffffff'
             }));
 
+            // Load POI types if present, otherwise use defaults
+            const poiTypes = data.p || get().selectedPOITypes;
+
             get().loadProject(newLocations, data.t || 30, undefined);
+            set({ selectedPOITypes: poiTypes });
             return true;
         } catch (e) {
             console.error("Failed to parse share string", e);
@@ -210,6 +228,86 @@ export const useStore = create<AppState>((set, get) => ({
 
     setMeetingArea: (area) => set({ meetingArea: area }),
 
+    // Helper function to search for multiple POI types
+    searchMultiplePOITypes: async (types: string[], lng: number, lat: number, bbox?: [number, number, number, number]): Promise<GeocodingFeature[]> => {
+        if (types.length === 0) return [];
+
+        const { POI_TYPES } = await import('@/constants/poiTypes');
+        const allPOIs: GeocodingFeature[] = [];
+        const seenIds = new Set<string>();
+
+        for (const typeId of types) {
+            const poiType = POI_TYPES.find(t => t.id === typeId);
+            if (!poiType) continue;
+
+            const results = await searchNearby(poiType.query, lng, lat, bbox);
+
+            // Filter duplicates by ID and tag with POI type
+            for (const poi of results) {
+                if (!seenIds.has(poi.id)) {
+                    seenIds.add(poi.id);
+                    // Tag the POI with its type ID
+                    allPOIs.push({ ...poi, poiType: typeId });
+                }
+            }
+        }
+
+        return allPOIs;
+    },
+
+    // Refresh POIs based on current meeting area and selected types
+    refreshPOIs: async () => {
+        const { meetingArea, selectedPOITypes } = get();
+
+        if (!meetingArea) {
+            set({ venues: [] });
+            return;
+        }
+
+        // Extract centroid and bbox from meeting area
+        // @ts-ignore
+        const center = turf.centroid(turf.feature(meetingArea)).geometry.coordinates;
+        const bbox = turf.bbox(turf.feature(meetingArea)) as [number, number, number, number];
+
+        // Multi-point search strategy: search from center + 4 quadrant centers
+        // This distributes POIs across the entire sweet spot area
+        const [minLng, minLat, maxLng, maxLat] = bbox;
+
+        const searchPoints = [
+            center,                          // Center
+            [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],  // SW quadrant
+            [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],  // SE quadrant
+            [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],  // NW quadrant
+            [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],  // NE quadrant
+        ];
+
+        // Search from all points and combine results
+        const allResults: GeocodingFeature[] = [];
+        for (const point of searchPoints) {
+            const pois = await get().searchMultiplePOITypes(selectedPOITypes, point[0], point[1], bbox);
+            allResults.push(...pois);
+        }
+
+        // Deduplicate by place_name and coordinates (same venue might appear in multiple searches)
+        const seen = new Set<string>();
+        const uniquePois = allResults.filter(poi => {
+            const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        // Filter to only include POIs within the actual sweet spot polygon
+        const filteredPois = uniquePois.filter(poi => {
+            const point = turf.point(poi.center);
+            // @ts-ignore
+            return turf.booleanPointInPolygon(point, turf.feature(meetingArea));
+        });
+
+        // Limit to reasonable number of POIs to avoid overcrowding
+        set({ venues: filteredPois.slice(0, 50) });
+    },
+
     calculateMeetingZone: async () => {
         const { locations, maxTravelTime, setIsochrone, setMeetingArea } = get();
 
@@ -252,12 +350,42 @@ export const useStore = create<AppState>((set, get) => ({
                     // @ts-ignore
                     setMeetingArea(intersection.geometry);
 
-                    // 3. Find POIs near centroid
+                    // 3. Find POIs across the entire sweet spot area using multi-point search
                     // @ts-ignore - Turf centroid returns Feature<Point>
                     const center = turf.centroid(intersection).geometry.coordinates; // [lng, lat]
-                    const pois = await searchNearby("cafe", center[0], center[1]);
+                    // Extract bounding box from the intersection polygon
+                    const bbox = turf.bbox(intersection) as [number, number, number, number];
 
-                    set({ venues: pois });
+                    // Multi-point search strategy
+                    const [minLng, minLat, maxLng, maxLat] = bbox;
+                    const searchPoints = [
+                        center,
+                        [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
+                        [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
+                        [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
+                        [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
+                    ];
+
+                    const allResults: GeocodingFeature[] = [];
+                    for (const point of searchPoints) {
+                        const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, point[0], point[1], bbox);
+                        allResults.push(...pois);
+                    }
+
+                    const seen = new Set<string>();
+                    const uniquePois = allResults.filter(poi => {
+                        const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+
+                    const filteredPois = uniquePois.filter(poi => {
+                        const point = turf.point(poi.center);
+                        return turf.booleanPointInPolygon(point, intersection);
+                    });
+
+                    set({ venues: filteredPois.slice(0, 50) });
                 } else {
                     set({ errorMsg: "No overlapping area found. Try increasing travel time." });
                 }
@@ -324,11 +452,41 @@ export const useStore = create<AppState>((set, get) => ({
                         });
                         set({ isochrones: newIsochrones });
 
-                        // Find POIs
+                        // Find POIs across the entire sweet spot area using multi-point search
                         // @ts-ignore
                         const center = turf.centroid(currentIntersection).geometry.coordinates;
-                        const pois = await searchNearby("cafe", center[0], center[1]);
-                        set({ venues: pois });
+                        const bbox = turf.bbox(currentIntersection) as [number, number, number, number];
+
+                        // Multi-point search strategy
+                        const [minLng, minLat, maxLng, maxLat] = bbox;
+                        const searchPoints = [
+                            center,
+                            [minLng + (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
+                            [maxLng - (maxLng - minLng) * 0.25, minLat + (maxLat - minLat) * 0.25],
+                            [minLng + (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
+                            [maxLng - (maxLng - minLng) * 0.25, maxLat - (maxLat - minLat) * 0.25],
+                        ];
+
+                        const allResults: GeocodingFeature[] = [];
+                        for (const point of searchPoints) {
+                            const pois = await get().searchMultiplePOITypes(get().selectedPOITypes, point[0], point[1], bbox);
+                            allResults.push(...pois);
+                        }
+
+                        const seen = new Set<string>();
+                        const uniquePois = allResults.filter(poi => {
+                            const key = `${poi.place_name}-${poi.center[0]}-${poi.center[1]}`;
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return true;
+                        });
+
+                        const filteredPois = uniquePois.filter(poi => {
+                            const point = turf.point(poi.center);
+                            return turf.booleanPointInPolygon(point, currentIntersection);
+                        });
+
+                        set({ venues: filteredPois.slice(0, 50) });
 
                         set({ isCalculating: false });
                         return; // Done
