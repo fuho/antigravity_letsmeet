@@ -482,5 +482,99 @@ export const PRESETS: Project[] = [
                 "color": "#00ff00"
             }
         ]
+    },
+    {
+        "id": "salvador-donaflor",
+        "name": "Salvador - Dona Flor and Her Two Husbands",
+        "maxTravelTime": 10,
+        "locations": [
+            {
+                "id": "salvador-donaflor-1",
+                "name": "Largo do Pelourinho",
+                "address": "Largo do Pelourinho, Pelourinho, Salvador, BA, Brazil",
+                "coordinates": [
+                    -38.5086,
+                    -12.9714
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "salvador-donaflor-2",
+                "name": "Igreja São Francisco",
+                "address": "Cruzeiro de São Francisco, Centro Histórico, Salvador, BA, Brazil",
+                "coordinates": [
+                    -38.5091,
+                    -12.9746
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "salvador-donaflor-3",
+                "name": "Terreiro de Jesus",
+                "address": "Terreiro de Jesus, Centro Histórico, Salvador, BA, Brazil",
+                "coordinates": [
+                    -38.5100,
+                    -12.9731
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "salvador-donaflor-4",
+                "name": "Casa de Jorge Amado",
+                "address": "Largo do Pelourinho 15, Salvador, BA, 40026-280, Brazil",
+                "coordinates": [
+                    -38.5089,
+                    -12.9714
+                ],
+                "color": "#00ff00"
+            }
+        ]
+    },
+    {
+        "id": "rio-domcasmurro",
+        "name": "Rio de Janeiro - Dom Casmurro",
+        "maxTravelTime": 15,
+        "locations": [
+            {
+                "id": "rio-domcasmurro-1",
+                "name": "Rua Riachuelo (Matacavalos)",
+                "address": "Rua Riachuelo, Centro, Rio de Janeiro, RJ, Brazil",
+                "coordinates": [
+                    -43.1833,
+                    -22.9108
+                ],
+                "color": "#ff00ff"
+            },
+            {
+                "id": "rio-domcasmurro-2",
+                "name": "Igreja da Glória",
+                "address": "Praça Nossa Senhora da Glória, Glória, Rio de Janeiro, RJ, Brazil",
+                "coordinates": [
+                    -43.1736,
+                    -22.9208
+                ],
+                "color": "#00ffff"
+            },
+            {
+                "id": "rio-domcasmurro-3",
+                "name": "Engenho Novo",
+                "address": "Engenho Novo, Rio de Janeiro, RJ, Brazil",
+                "coordinates": [
+                    -43.2644,
+                    -22.8989
+                ],
+                "color": "#ffff00"
+            },
+            {
+                "id": "rio-domcasmurro-4",
+                "name": "Arcos da Lapa",
+                "address": "Arcos da Lapa, Centro, Rio de Janeiro, RJ, Brazil",
+                "coordinates": [
+                    -43.1797,
+                    -22.9131
+                ],
+                "color": "#00ff00"
+            }
+        ]
     }
 ];
