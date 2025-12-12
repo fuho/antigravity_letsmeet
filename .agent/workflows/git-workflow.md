@@ -1,79 +1,125 @@
 ---
-description: Git workflow and branching strategy for LetsMeet development
+description: Unified Git workflow and branching strategy for LetsMeet development
 ---
 
-# Development Workflow
+# Unified Git Workflow
 
-## Git Branching Strategy
+## Branch Structure
 
-### ⚠️ CRITICAL RULE: Never work directly on `main`
+- `main` – Production‑ready releases only (deployed to Cloudflare Pages).
+- `dev` – Integration branch where all feature, fix, and test branches are merged first.
+- `feature/*` – New functionality (e.g., `feature/poi-search`).
+- `fix/*` – Bug fixes (e.g., `feature/marker-position`).
+- `test/*` – Adding or updating tests (e.g., `test/store-coverage`).
 
-**Always create a feature branch before starting work on any feature, bug fix, or improvement.**
+## Branch Naming Convention
 
-### Branch Naming Convention
-
-- **Features**: `feature/descriptive-name` (e.g., `feature/shareable-links`)
-- **Bug fixes**: `fix/descriptive-name` (e.g., `fix/unicode-encoding`)
+- **Features**: `feature/descriptive-name`
+- **Bug fixes**: `fix/descriptive-name`
 - **Refactoring**: `refactor/descriptive-name`
 - **Documentation**: `docs/descriptive-name`
+- **Tests**: `test/descriptive-name`
 
-### Workflow Steps
+## Development Workflow
 
-1. **Before starting any work:**
+### 1. Starting New Work
 
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b feature/your-feature-name
-   ```
+```bash
+git checkout dev
+git pull origin dev
+git checkout -b feature/your-feature-name
+```
 
-2. **During development:**
-   - Make commits regularly with clear messages
-   - Follow conventional commits format: `feat:`, `fix:`, `docs:`, etc.
+### 2. During Development
 
-3. **Before merging:**
+- Commit frequently using Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`).
+- Run tests locally: `npm test`.
+- Run lint: `npm run lint`.
+- Keep the codebase building: `npm run build`.
 
-   ```bash
-   git add -A
-   git commit -m "feat: description of feature"
-   git push origin feature/your-feature-name
-   ```
+### 3. Merging to Dev
 
-4. **Merge to main:**
+```bash
+git checkout dev
+git pull origin dev
+git merge feature/your-feature-name --no-edit
+git push origin dev
+```
 
-   ```bash
-   git checkout main
-   git merge feature/your-feature-name
-   git tag <version> # if releasing
-   git push origin main
-   git push origin <version> # if tagged
-   ```
+### 4. Cleanup (optional)
 
-5. **Cleanup:**
+```bash
+git branch -d feature/your-feature-name
+```
 
-   ```bash
-   git branch -d feature/your-feature-name
-   ```
+## Release Workflow (Dev → Main)
 
-## Release Process
+1. **Pre‑release Checks on `dev`**
 
-1. Complete feature in feature branch
-2. Update `CHANGELOG.md` with changes
-3. Merge to `main`
-4. Tag with version number (e.g., `1.1`, `1.2`)
-5. Push main and tags
-6. Cloudflare Pages auto-deploys
+```bash
+npm run lint
+npm test
+npm run build
+```
 
-## Version Numbering
+All must pass.
+2. **Bump Version** – Update `package.json`, `src/version.ts`, and add a changelog entry.
+3. **Commit Version Bump**
 
-- **Major** (x.0.0): Breaking changes or major new features
-- **Minor** (1.x.0): New features, backwards compatible
-- **Patch** (1.1.x): Bug fixes only
+```bash
+git add -A
+git commit -m "chore: Bump version to X.Y.Z"
+```
 
-## Pre-commit Checklist
+4. **Merge to `main` & Tag**
 
-- [ ] Working in a feature branch (not `main`)
-- [ ] Code tested locally
-- [ ] No TypeScript errors (`npm run build`)
-- [ ] Commit messages follow conventional commits
-- [ ] CHANGELOG.md updated (for releases)
+```bash
+git checkout main
+git pull origin main
+git merge dev --no-edit
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+```
+
+5. **Push to Production**
+
+```bash
+git push origin main --tags
+```
+
+6. **Sync `dev` with `main`**
+
+```bash
+git checkout dev
+git merge main --no-edit
+git push origin dev
+```
+
+## Version Numbering (Semantic)
+
+- **Major** (x.0.0): Breaking changes or major new features.
+- **Minor** (1.x.0): New features, backwards compatible.
+- **Patch** (1.1.x): Bug fixes only.
+
+## Pre‑commit Checklist
+
+- [ ] Working in a feature branch (not `main`).
+- [ ] Code tested locally.
+- [ ] No TypeScript errors (`npm run build`).
+- [ ] Commit messages follow Conventional Commits.
+- [ ] `CHANGELOG.md` updated (for releases).
+
+## Quick Reference
+
+| Action | Command |
+|--------|---------|
+| Start feature | `git checkout dev && git checkout -b feature/name` |
+| Merge to dev | `git checkout dev && git merge feature/name` |
+| Release | Checks → bump → merge to main → tag → push |
+
+---
+
+## Remember
+
+- Always branch from `dev`, never directly from `main`.
+- Run full checks (lint, test, build) before any merge.
+- Keep `CHANGELOG.md` up to date for releases.
