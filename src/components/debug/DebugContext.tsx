@@ -3,8 +3,9 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useStore } from "@/store/useStore";
 
-interface RequestCounts {
-    [url: string]: number;
+export interface RequestNode {
+    count: number;
+    children: Record<string, RequestNode>;
 }
 
 interface LogEntry {
@@ -14,10 +15,12 @@ interface LogEntry {
 }
 
 interface DebugContextType {
-    requestCounts: RequestCounts;
+    requestTree: RequestNode;
     logs: LogEntry[];
     clearLogs: () => void;
     clearRequests: () => void;
+    // Counter for reactivity (since deep object mutation might not trigger simple equality checks if we're not careful, but we'll return a new root object)
+    requestCountTotal: number;
 }
 
 const DebugContext = createContext<DebugContextType | null>(null);
@@ -31,11 +34,13 @@ export const useDebug = () => {
 };
 
 export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [requestCounts, setRequestCounts] = useState<RequestCounts>({});
+    // Root node for the request tree
+    const [requestTree, setRequestTree] = useState<RequestNode>({ count: 0, children: {} });
+    const [requestCountTotal, setRequestCountTotal] = useState(0);
     const [logs, setLogs] = useState<LogEntry[]>([]);
 
-    // We use refs to avoid dependency cycles in interceptors
-    const requestCountsRef = useRef<RequestCounts>({});
+    // We use refs to avoid dependency cycles in interceptors and keep track of current state
+    const requestTreeRef = useRef<RequestNode>({ count: 0, children: {} });
 
     // Only enable if env var is set
     const isDebugEnabled = process.env.NEXT_PUBLIC_DEBUG === "true";
@@ -44,45 +49,51 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!isDebugEnabled) return;
 
         // --- Fetch Interceptor ---
+        const originalInfo = console.info;
+        // We aren't intercepting console.info but original fetch...
+
         const originalFetch = window.fetch;
         window.fetch = async (input, init) => {
             const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
-            // Parse URL and count segments
             try {
-                // Determine base URL if it's relative
                 const fullUrl = new URL(url, window.location.origin);
+
+                // Parse segments: Protocol -> Host -> Path parts...
                 const segments: string[] = [];
+                segments.push(fullUrl.protocol); // "https:"
+                segments.push(fullUrl.host);     // "api.mapbox.com"
 
-                // 1. Protocol (e.g., "https://")
-                segments.push(fullUrl.protocol + "//");
-
-                // 2. Origin (e.g., "https://api.example.com")
-                if (fullUrl.origin !== "null") {
-                    segments.push(fullUrl.origin);
-                }
-
-                // 3. Recursive Path segments
-                // e.g. /v2/isochrones/driving -> /v2, /v2/isochrones, /v2/isochrones/driving
+                // Path parts
                 const pathParts = fullUrl.pathname.split('/').filter(p => p);
-                let currentPath = fullUrl.origin;
-                for (const part of pathParts) {
-                    currentPath = `${currentPath}/${part}`;
-                    segments.push(currentPath);
-                }
+                segments.push(...pathParts);
 
-                // Also add exact full URL if query params exist (or just to be safe as the leaf)
-                if (fullUrl.href !== currentPath) {
-                    segments.push(fullUrl.href);
-                }
+                // Update Tree
+                const updateNode = (node: RequestNode, segmentIndex: number) => {
+                    node.count++;
 
-                // Update counts
-                const newCounts = { ...requestCountsRef.current };
-                for (const segment of segments) {
-                    newCounts[segment] = (newCounts[segment] || 0) + 1;
-                }
-                requestCountsRef.current = newCounts;
-                setRequestCounts(newCounts); // Trigger re-render
+                    if (segmentIndex < segments.length) {
+                        const segment = segments[segmentIndex];
+                        if (!node.children[segment]) {
+                            node.children[segment] = { count: 0, children: {} };
+                        }
+                        updateNode(node.children[segment], segmentIndex + 1);
+                    }
+                };
+
+                // Create a deep copy or just mutate and set new reference? 
+                // Mutating ref and then triggering update is safer for concurrent requests
+                // But we need to be careful about state immutability for React.
+                // For debug overlay, full deep clone on every request might be expensive if tree is huge.
+                // Let's try to be somewhat immutable or just use force update pattern via requestCountTotal.
+
+                const currentRoot = requestTreeRef.current;
+                // Mutate the ref's tree directly
+                updateNode(currentRoot, 0);
+
+                // Update state to trigger render
+                setRequestTree({ ...currentRoot });
+                setRequestCountTotal(prev => prev + 1);
 
             } catch (e) {
                 console.error("Failed to parse URL for debug stats", e);
@@ -123,8 +134,9 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const clearLogs = () => setLogs([]);
     const clearRequests = () => {
-        requestCountsRef.current = {};
-        setRequestCounts({});
+        requestTreeRef.current = { count: 0, children: {} };
+        setRequestTree({ count: 0, children: {} });
+        setRequestCountTotal(0);
     };
 
     if (!isDebugEnabled) {
@@ -132,7 +144,7 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     return (
-        <DebugContext.Provider value={{ requestCounts, logs, clearLogs, clearRequests }}>
+        <DebugContext.Provider value={{ requestTree, logs, clearLogs, clearRequests, requestCountTotal }}>
             {children}
         </DebugContext.Provider>
     );
