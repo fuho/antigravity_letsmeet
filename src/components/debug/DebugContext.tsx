@@ -45,60 +45,78 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Only enable if env var is set
     const isDebugEnabled = process.env.NEXT_PUBLIC_DEBUG === "true";
 
+    // Batching Refs
+    const pendingLogs = useRef<LogEntry[]>([]);
+    const pendingRequests = useRef<string[]>([]); // Store URLs to process
+
+    // Flush updates periodically to avoid "update while rendering" and improve perf
+    useEffect(() => {
+        if (!isDebugEnabled) return;
+
+        const interval = setInterval(() => {
+            let hasUpdates = false;
+
+            // Process Logs
+            if (pendingLogs.current.length > 0) {
+                const newLogs = pendingLogs.current;
+                pendingLogs.current = [];
+                setLogs(prev => [...prev, ...newLogs].slice(-100)); // Keep last 100
+                hasUpdates = true;
+            }
+
+            // Process Requests
+            if (pendingRequests.current.length > 0) {
+                const urls = pendingRequests.current;
+                pendingRequests.current = [];
+
+                const currentRoot = requestTreeRef.current; // Work with current tree
+                let addedCount = 0;
+
+                urls.forEach(url => {
+                    try {
+                        const fullUrl = new URL(url, window.location.origin);
+                        const segments: string[] = [];
+                        segments.push(fullUrl.protocol);
+                        segments.push(fullUrl.host);
+                        segments.push(...fullUrl.pathname.split('/').filter(p => p));
+
+                        const updateNode = (node: RequestNode, segmentIndex: number) => {
+                            node.count++;
+                            if (segmentIndex < segments.length) {
+                                const segment = segments[segmentIndex];
+                                if (!node.children[segment]) {
+                                    node.children[segment] = { count: 0, children: {} };
+                                }
+                                updateNode(node.children[segment], segmentIndex + 1);
+                            }
+                        };
+                        updateNode(currentRoot, 0);
+                        addedCount++;
+                    } catch (e) {
+                        // ignore parse errors
+                    }
+                });
+
+                if (addedCount > 0) {
+                    setRequestTree({ ...currentRoot });
+                    setRequestCountTotal(prev => prev + addedCount);
+                    hasUpdates = true;
+                }
+            }
+
+        }, 200); // Flush every 200ms
+
+        return () => clearInterval(interval);
+    }, [isDebugEnabled]);
+
     useEffect(() => {
         if (!isDebugEnabled) return;
 
         // --- Fetch Interceptor ---
-        const originalInfo = console.info;
-        // We aren't intercepting console.info but original fetch...
-
         const originalFetch = window.fetch;
         window.fetch = async (input, init) => {
             const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-            try {
-                const fullUrl = new URL(url, window.location.origin);
-
-                // Parse segments: Protocol -> Host -> Path parts...
-                const segments: string[] = [];
-                segments.push(fullUrl.protocol); // "https:"
-                segments.push(fullUrl.host);     // "api.mapbox.com"
-
-                // Path parts
-                const pathParts = fullUrl.pathname.split('/').filter(p => p);
-                segments.push(...pathParts);
-
-                // Update Tree
-                const updateNode = (node: RequestNode, segmentIndex: number) => {
-                    node.count++;
-
-                    if (segmentIndex < segments.length) {
-                        const segment = segments[segmentIndex];
-                        if (!node.children[segment]) {
-                            node.children[segment] = { count: 0, children: {} };
-                        }
-                        updateNode(node.children[segment], segmentIndex + 1);
-                    }
-                };
-
-                // Create a deep copy or just mutate and set new reference? 
-                // Mutating ref and then triggering update is safer for concurrent requests
-                // But we need to be careful about state immutability for React.
-                // For debug overlay, full deep clone on every request might be expensive if tree is huge.
-                // Let's try to be somewhat immutable or just use force update pattern via requestCountTotal.
-
-                const currentRoot = requestTreeRef.current;
-                // Mutate the ref's tree directly
-                updateNode(currentRoot, 0);
-
-                // Update state to trigger render
-                setRequestTree({ ...currentRoot });
-                setRequestCountTotal(prev => prev + 1);
-
-            } catch (e) {
-                console.error("Failed to parse URL for debug stats", e);
-            }
-
+            pendingRequests.current.push(url);
             return originalFetch(input, init);
         };
 
@@ -107,20 +125,20 @@ export const DebugProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const originalWarn = console.warn;
         const originalError = console.error;
 
-        const addLog = (type: "log" | "warn" | "error", args: any[]) => {
-            setLogs(prev => [...prev.slice(-99), { type, args, timestamp: Date.now() }]);
+        const queueLog = (type: "log" | "warn" | "error", args: any[]) => {
+            pendingLogs.current.push({ type, args, timestamp: Date.now() });
         };
 
         console.log = (...args) => {
-            addLog("log", args);
+            queueLog("log", args);
             originalLog(...args);
         };
         console.warn = (...args) => {
-            addLog("warn", args);
+            queueLog("warn", args);
             originalWarn(...args);
         };
         console.error = (...args) => {
-            addLog("error", args);
+            queueLog("error", args);
             originalError(...args);
         };
 
