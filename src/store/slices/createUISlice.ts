@@ -49,7 +49,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
             // Meeting Slice
             maxTravelTime: maxTime || 30,
             transportMode: transportMode || "walking",
-            isochroneProvider: (isochroneProvider as any) || "ors",
+            isochroneProvider: (isochroneProvider as any) || "mapbox",
             isochrones: {},
             meetingArea: null,
             venues: [],
