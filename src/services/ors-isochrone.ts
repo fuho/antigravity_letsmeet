@@ -13,8 +13,6 @@ export class OpenRouteServiceAdapter implements IsochroneService {
             return null;
         }
 
-        console.log("Fetching ORS Isochrone...");
-
 
         const orsProfile = this.mapProfile(profile);
 

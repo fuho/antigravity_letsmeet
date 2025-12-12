@@ -300,14 +300,8 @@ export default function Sidebar() {
                         hoveredLocationId={hoveredLocationId}
                         editingItem={editingItem}
                         editValue={editValue}
-                        onHoverStart={(id) => {
-                            setHoveredLocationId(id);
-                            useStore.getState().setHoveredLocationId(id);
-                        }}
-                        onHoverEnd={() => {
-                            setHoveredLocationId(null);
-                            useStore.getState().setHoveredLocationId(null);
-                        }}
+                        onHoverStart={(id) => setHoveredLocationId(id)}
+                        onHoverEnd={() => setHoveredLocationId(null)}
                         onStartEdit={startEditing}
                         onEditValueChange={setEditValue}
                         onSaveEdit={saveEdit}
@@ -351,14 +345,8 @@ export default function Sidebar() {
                 <VenueList
                     venues={venues}
                     hoveredVenueId={hoveredVenueId}
-                    onHoverStart={(id) => {
-                        setHoveredVenueId(id);
-                        useStore.getState().setHoveredVenueId(id);
-                    }}
-                    onHoverEnd={() => {
-                        setHoveredVenueId(null);
-                        useStore.getState().setHoveredVenueId(null);
-                    }}
+                    onHoverStart={(id) => setHoveredVenueId(id)}
+                    onHoverEnd={() => setHoveredVenueId(null)}
                 />
             </div>
 

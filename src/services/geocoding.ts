@@ -1,6 +1,7 @@
 import { GeocodingService, GeocodingProvider } from "./geocoding-types";
 import { MapboxGeocodingAdapter } from "./mapbox";
 import { ORSGeocodingAdapter } from "./ors-geocoding";
+import { useStore } from "@/store/useStore";
 
 const mapboxAdapter = new MapboxGeocodingAdapter();
 const orsAdapter = new ORSGeocodingAdapter();
@@ -15,7 +16,6 @@ export function getGeocodingService(provider: GeocodingProvider = "mapbox"): Geo
     }
 }
 
-import { useStore } from "@/store/useStore";
 
 // Helper to determine the default provider from environment or config
 export function getDefaultGeocodingProvider(): GeocodingProvider {

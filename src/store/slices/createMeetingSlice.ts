@@ -62,8 +62,6 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
 
         set({ isCalculating: true, errorMsg: null, meetingArea: null, venues: [] });
 
-        console.log("Calculating meeting zone with:", { maxTravelTime, transportMode, isochroneProvider });
-
         try {
             // 1. Fetch Isochrones
             const polygons: GeoJSON.Polygon[] = [];
