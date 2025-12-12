@@ -11,6 +11,9 @@ export interface UISlice {
     hoveredVenueId: string | null;
     setHoveredVenueId: (id: string | null) => void;
 
+    mapStyle: string;
+    setMapStyle: (style: string) => void;
+
     selectedPOITypes: string[];
     setSelectedPOITypes: (types: string[]) => void;
 
@@ -28,6 +31,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
 
     hoveredVenueId: null,
     setHoveredVenueId: (id) => set({ hoveredVenueId: id }),
+
+    mapStyle: "mapbox://styles/mapbox/dark-v11",
+    setMapStyle: (style) => set({ mapStyle: style }),
 
     selectedPOITypes: DEFAULT_POI_TYPES,
     setSelectedPOITypes: (types) => set({ selectedPOITypes: types }),

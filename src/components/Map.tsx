@@ -10,6 +10,7 @@ import LocationMarker from "./map/LocationMarker";
 import POIMarker from "./map/POIMarker";
 import LocationPopup from "./map/LocationPopup";
 import POIPopup from "./map/POIPopup";
+import MapStyleSwitcher from "./map/MapStyleSwitcher";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -23,7 +24,8 @@ export default function Map() {
         hoveredVenueId,
         updateLocationPosition,
         removeLocation,
-        venues
+        venues,
+        mapStyle
     } = useStore();
 
     // Auto-center map when locations/meeting area change
@@ -111,11 +113,12 @@ export default function Map() {
                     zoom: 12,
                 }}
                 style={{ width: "100%", height: "100%" }}
-                mapStyle="mapbox://styles/mapbox/dark-v11"
+                mapStyle={mapStyle}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 onClick={handleMapClick}
             >
                 <NavigationControl position="top-left" />
+                <MapStyleSwitcher />
 
                 {/* Map Layers (Isochrones & Sweet Spot) */}
                 <MapLayers
