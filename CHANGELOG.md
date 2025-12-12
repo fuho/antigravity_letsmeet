@@ -5,6 +5,23 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-12-12
+
+### Added
+
+- **Map Style Switcher**: Select between Mapbox Dark, OpenFreeMap Positron (Light), and OpenFreeMap Bright styles.
+- **Debug Overlay Improvements**:
+  - Top-left "DBG" handle with tab summaries.
+  - Drill-down Tree View for network requests (Protocol -> Domain -> Path).
+  - Real-time flashing animations for updates.
+  - Resize handle and semitransparent background.
+- **Dynamic Attribution**: Automatically switches attribution based on selected map style (Mapbox vs OpenFreeMap).
+
+### Changed
+
+- **Default Routing Service**: Switched back to Mapbox as the default isochrone provider (OpenRouteService limits).
+- **Debug Performance**: Batched debug state updates to prevent "Cannot update component while rendering" warnings.
+
 ## [1.6.1] - 2025-12-12
 
 ### Added
