@@ -15,7 +15,7 @@ import LocationPopup from "./map/LocationPopup";
 import POIPopup from "./map/POIPopup";
 import MapStyleSwitcher from "./map/MapStyleSwitcher";
 
-const MAP_PROVIDER = process.env.NEXT_PUBLIC_MAP_PROVIDER || "mapbox";
+const DEFAULT_PROVIDER = process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER || "mapbox";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export default function Map() {
@@ -29,13 +29,14 @@ export default function Map() {
         updateLocationPosition,
         removeLocation,
         venues,
-        mapStyle
+        mapStyle,
+        mapProvider
     } = useStore();
 
     // Determine which library to use
     const mapLib = useMemo(() => {
-        return MAP_PROVIDER === "maplibre" ? maplibregl : mapboxgl;
-    }, []);
+        return mapProvider === "maplibre" ? maplibregl : mapboxgl;
+    }, [mapProvider]);
 
     // Auto-center map when locations/meeting area change
     const mapRef = useRef<any>(null);
@@ -115,6 +116,7 @@ export default function Map() {
     return (
         <div className="w-full h-full relative">
             <ReactMapGL
+                key={mapProvider} // Force remount when provider changes
                 ref={mapRef}
                 mapLib={mapLib as any}
                 initialViewState={{
@@ -124,7 +126,7 @@ export default function Map() {
                 }}
                 style={{ width: "100%", height: "100%" }}
                 mapStyle={mapStyle}
-                mapboxAccessToken={MAP_PROVIDER === "mapbox" ? MAPBOX_TOKEN : undefined}
+                mapboxAccessToken={mapProvider === "mapbox" ? MAPBOX_TOKEN : undefined}
                 onClick={handleMapClick}
                 attributionControl={false}
             >

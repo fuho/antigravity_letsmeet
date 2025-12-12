@@ -24,8 +24,17 @@ export default function MapStyleSwitcher() {
     const { mapStyle, setMapStyle } = useStore();
     const [isOpen, setIsOpen] = useState(false);
 
-    const isMapbox = process.env.NEXT_PUBLIC_MAP_PROVIDER !== "maplibre";
-    const filteredStyles = STYLES.filter(s => isMapbox || !s.isMapbox);
+    // Availability Logic
+    const isMapboxAvailable = !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+    // Filter styles: 
+    // - Always show MapLibre/OFM styles (they are free/open)
+    // - Only show Mapbox styles if token is present
+    const filteredStyles = STYLES.filter(s => {
+        if (s.isMapbox) return isMapboxAvailable;
+        return true;
+    });
+
     const currentStyle = STYLES.find(s => s.id === mapStyle) || filteredStyles[0];
 
     return (

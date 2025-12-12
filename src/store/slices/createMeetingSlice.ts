@@ -38,7 +38,7 @@ export interface MeetingSlice {
 export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = (set, get) => ({
     maxTravelTime: 30,
     transportMode: "walking" as TransportMode,
-    isochroneProvider: (process.env.NEXT_PUBLIC_MAP_PROVIDER === "maplibre" ? "ors" : "mapbox") as IsochroneProvider,
+    isochroneProvider: (process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER === "maplibre" ? "ors" : "mapbox") as IsochroneProvider,
     isochrones: {},
     meetingArea: null,
     venues: [],

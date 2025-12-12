@@ -14,6 +14,9 @@ export interface UISlice {
     mapStyle: string;
     setMapStyle: (style: string) => void;
 
+    mapProvider: "mapbox" | "maplibre";
+    setMapProvider: (provider: "mapbox" | "maplibre") => void;
+
     selectedPOITypes: string[];
     setSelectedPOITypes: (types: string[]) => void;
 
@@ -32,10 +35,26 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     hoveredVenueId: null,
     setHoveredVenueId: (id) => set({ hoveredVenueId: id }),
 
-    mapStyle: process.env.NEXT_PUBLIC_MAP_PROVIDER === "maplibre"
+    mapStyle: process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER === "maplibre"
         ? "https://tiles.openfreemap.org/styles/positron"
         : "mapbox://styles/mapbox/dark-v11",
-    setMapStyle: (style) => set({ mapStyle: style }),
+    setMapStyle: (style) => set((state) => {
+        // Auto-switch provider based on style
+        const isMapboxStyle = style.startsWith("mapbox://");
+        const newProvider = isMapboxStyle ? "mapbox" : "maplibre";
+        return {
+            mapStyle: style,
+            mapProvider: newProvider,
+            isochroneProvider: newProvider === "maplibre" ? "ors" : "mapbox"
+        };
+    }),
+
+    mapProvider: (process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER === "maplibre" ? "maplibre" : "mapbox") as "mapbox" | "maplibre",
+    setMapProvider: (provider) => set((state) => ({
+        mapProvider: provider,
+        // Also update isochrone provider to match
+        isochroneProvider: provider === "maplibre" ? "ors" : "mapbox"
+    })),
 
     selectedPOITypes: DEFAULT_POI_TYPES,
     setSelectedPOITypes: (types) => set({ selectedPOITypes: types }),
@@ -60,6 +79,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
 
             // UI Slice
             activeProjectId: projectId || null,
+            // Note: We don't overwrite mapProvider here yet, preserving user choice or default
+            // unless we want to save it in the project (not requested yet).
         });
     },
 

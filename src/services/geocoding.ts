@@ -15,9 +15,20 @@ export function getGeocodingService(provider: GeocodingProvider = "mapbox"): Geo
     }
 }
 
+import { useStore } from "@/store/useStore";
+
 // Helper to determine the default provider from environment or config
 export function getDefaultGeocodingProvider(): GeocodingProvider {
-    const provider = process.env.NEXT_PUBLIC_MAP_PROVIDER;
+    // Try to get from store first (runtime switch)
+    try {
+        const storeProvider = useStore.getState().mapProvider;
+        if (storeProvider === "maplibre") return "ors";
+        if (storeProvider === "mapbox") return "mapbox";
+    } catch (e) {
+        // Fallback if store not initialized (unlikely in app, possible in tests)
+    }
+
+    const provider = process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER;
     return provider === "maplibre" ? "ors" : "mapbox";
 }
 
