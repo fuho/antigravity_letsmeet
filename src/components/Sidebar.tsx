@@ -15,6 +15,7 @@ import VenueList from "./sidebar/VenueList";
 import AddressSearchInput from "./sidebar/AddressSearchInput";
 import { useUrlSync } from "./sidebar/useUrlSync";
 import { useProjectManager } from "./sidebar/useProjectManager";
+import { APP_VERSION } from "@/version";
 
 export default function Sidebar() {
     const [query, setQuery] = useState("");
@@ -166,6 +167,7 @@ export default function Sidebar() {
                         className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 cursor-pointer hover:opacity-80 transition-opacity"
                     >
                         Let&apos;s Meet
+                        <sup className="text-[10px] ml-1 text-pink-500 opacity-80">v{APP_VERSION}</sup>
                     </h1>
 
                     <button
