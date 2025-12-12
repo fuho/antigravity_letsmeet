@@ -5,6 +5,17 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-12-12
+
+### Added
+
+- **Version Display**: Added version number `v1.6.1` to the sidebar title.
+
+### Fixed
+
+- Fixed an issue where the map would fail to render (black screen) due to incorrect Mapbox overlay nesting.
+- Improved version visibility color contrast.
+
 ## [1.6.0] - 2025-12-12
 
 ### Added
