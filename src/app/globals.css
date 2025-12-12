@@ -15,18 +15,40 @@
 }
 
 body {
+  /* Prevent scroll for full screen map app */
+  overflow: hidden;
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-geist-sans);
 }
 
 /* Custom Mapbox Popup Styles - Remove default white background */
-.mapboxgl-popup-content {
+.mapboxgl-popup-content,
+.maplibregl-popup-content {
   background: transparent !important;
   padding: 0 !important;
   box-shadow: none !important;
 }
 
-.mapboxgl-popup-tip {
+.mapboxgl-popup-tip,
+.maplibregl-popup-tip {
   display: none !important;
+}
+
+/* Force visibility of controls in case of import issues */
+.mapboxgl-ctrl,
+.maplibregl-ctrl {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Specific z-index boost */
+.mapboxgl-ctrl-top-left,
+.maplibregl-ctrl-top-left {
+  z-index: 50 !important;
+}
+
+.maplibregl-ctrl-bottom-left {
+  z-index: 50 !important;
 }

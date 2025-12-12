@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useRef, useCallback, useState, useEffect } from "react";
+import React, { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import ReactMapGL, { Source, Layer, Marker, Popup, NavigationControl, AttributionControl, MapRef } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import "maplibre-gl/dist/maplibre-gl.css";
+import mapboxgl from "mapbox-gl";
+import maplibregl from "maplibre-gl";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
 import MapLayers from "./map/MapLayers";
@@ -12,6 +15,7 @@ import LocationPopup from "./map/LocationPopup";
 import POIPopup from "./map/POIPopup";
 import MapStyleSwitcher from "./map/MapStyleSwitcher";
 
+const DEFAULT_PROVIDER = process.env.NEXT_PUBLIC_DEFAULT_MAP_PROVIDER || "mapbox";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
 export default function Map() {
@@ -25,8 +29,14 @@ export default function Map() {
         updateLocationPosition,
         removeLocation,
         venues,
-        mapStyle
+        mapStyle,
+        mapProvider
     } = useStore();
+
+    // Determine which library to use
+    const mapLib = useMemo(() => {
+        return mapProvider === "maplibre" ? maplibregl : mapboxgl;
+    }, [mapProvider]);
 
     // Auto-center map when locations/meeting area change
     const mapRef = useRef<any>(null);
@@ -106,7 +116,9 @@ export default function Map() {
     return (
         <div className="w-full h-full relative">
             <ReactMapGL
+                key={mapProvider} // Force remount when provider changes
                 ref={mapRef}
+                mapLib={mapLib as any}
                 initialViewState={{
                     longitude: 14.4378,
                     latitude: 50.0755, // Default to Prague
@@ -114,12 +126,13 @@ export default function Map() {
                 }}
                 style={{ width: "100%", height: "100%" }}
                 mapStyle={mapStyle}
-                mapboxAccessToken={MAPBOX_TOKEN}
+                mapboxAccessToken={mapProvider === "mapbox" ? MAPBOX_TOKEN : undefined}
                 onClick={handleMapClick}
                 attributionControl={false}
             >
                 <AttributionControl
                     position="bottom-left"
+                    style={{ color: '#333' }}
                     customAttribution={
                         mapStyle.includes("openfreemap")
                             ? '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>'
@@ -128,7 +141,6 @@ export default function Map() {
                 />
 
                 <NavigationControl position="top-left" />
-                <MapStyleSwitcher />
 
                 {/* Map Layers (Isochrones & Sweet Spot) */}
                 <MapLayers
@@ -230,6 +242,7 @@ export default function Map() {
                 })()}
 
             </ReactMapGL>
-        </div>
+            <MapStyleSwitcher />
+        </div >
     );
 }

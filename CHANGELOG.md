@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Map Style Switcher**: Select between Mapbox Dark, OpenFreeMap Positron (Light), and OpenFreeMap Bright styles.
+- **Dual Map Provider Support**: Seamless support for both Mapbox and MapLibre ecosystems
+  - Switchable via `NEXT_PUBLIC_DEFAULT_MAP_PROVIDER` environment variable
+  - **MapLibre Mode**: Uses **OpenFreeMap** tiles (Positron/Bright) and **OpenRouteService** for geocoding & isochrones
+  - **Mapbox Mode**: Classic behavior with Mapbox tiles and APIs
+- **Geocoding Service Factory**: Abstracted service layer to switch between Mapbox and OpenRouteService adapters dynamically
+- **UI Improvements**: Polished map style switcher, aligning popup to left and filtering incompatible styles
 - **Debug Overlay Improvements**:
   - Top-left "DBG" handle with tab summaries.
   - Drill-down Tree View for network requests (Protocol -> Domain -> Path).
@@ -21,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Default Routing Service**: Switched back to Mapbox as the default isochrone provider (OpenRouteService limits).
 - **Debug Performance**: Batched debug state updates to prevent "Cannot update component while rendering" warnings.
+- **Dependency Update**: Pinned `maplibre-gl` to v4.7.1 to resolve compatibility issues with `react-map-gl` v7
+- **Map Component**: Refactored to dynamically load the appropriate map library (`mapbox-gl` or `maplibre-gl`) at runtime
 
 ## [1.6.1] - 2025-12-12
 
