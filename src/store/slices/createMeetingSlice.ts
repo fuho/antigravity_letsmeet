@@ -1,7 +1,7 @@
 import { StateCreator } from "zustand";
 import { AppState } from "../useStore";
 import { GeocodingFeature } from "@/services/mapbox";
-import { getIsochrone, IsochroneProfile } from "@/services/isochrone";
+import { getIsochrone, IsochroneProfile, IsochroneProvider } from "@/services/isochrone";
 import { calculateIntersection, getBoundingBox, getCentroid } from "@/utils/geometry";
 import { searchPOIsInArea } from "@/utils/poi";
 import { searchMultiplePOITypes } from "@/services/poi";
@@ -18,6 +18,7 @@ export const TRANSPORT_MODES: { id: TransportMode; label: string; icon: string }
 export interface MeetingSlice {
     maxTravelTime: number;
     transportMode: TransportMode;
+    isochroneProvider: IsochroneProvider;
     isochrones: Record<string, GeoJSON.Polygon>;
     meetingArea: GeoJSON.Geometry | null;
     venues: GeocodingFeature[];
@@ -26,6 +27,7 @@ export interface MeetingSlice {
 
     setMaxTravelTime: (time: number) => void;
     setTransportMode: (mode: TransportMode) => void;
+    setIsochroneProvider: (provider: IsochroneProvider) => void;
     setIsochrone: (id: string, poly: GeoJSON.Polygon) => void;
     setMeetingArea: (area: GeoJSON.Geometry | null) => void;
     calculateMeetingZone: () => Promise<void>;
@@ -36,6 +38,7 @@ export interface MeetingSlice {
 export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = (set, get) => ({
     maxTravelTime: 30,
     transportMode: "walking" as TransportMode,
+    isochroneProvider: "ors" as IsochroneProvider,
     isochrones: {},
     meetingArea: null,
     venues: [],
@@ -44,12 +47,13 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
 
     setMaxTravelTime: (time) => set({ maxTravelTime: time }),
     setTransportMode: (mode) => set({ transportMode: mode }),
+    setIsochroneProvider: (provider) => set({ isochroneProvider: provider }),
     setIsochrone: (id, poly) =>
         set((state) => ({ isochrones: { ...state.isochrones, [id]: poly } })),
     setMeetingArea: (area) => set({ meetingArea: area }),
 
     calculateMeetingZone: async () => {
-        const { locations, maxTravelTime, transportMode, setIsochrone, setMeetingArea } = get();
+        const { locations, maxTravelTime, transportMode, isochroneProvider, setIsochrone, setMeetingArea } = get();
 
         if (locations.length < 1) {
             set({ errorMsg: "add at least 1 location", isCalculating: false });
@@ -58,12 +62,14 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
 
         set({ isCalculating: true, errorMsg: null, meetingArea: null, venues: [] });
 
+        console.log("Calculating meeting zone with:", { maxTravelTime, transportMode, isochroneProvider });
+
         try {
             // 1. Fetch Isochrones
             const polygons: GeoJSON.Polygon[] = [];
 
             for (const loc of locations) {
-                const result = await getIsochrone(loc.coordinates, maxTravelTime, transportMode);
+                const result = await getIsochrone(loc.coordinates, maxTravelTime, transportMode, isochroneProvider);
                 if (result) {
                     const poly = result as GeoJSON.Polygon;
                     setIsochrone(loc.id, poly);
@@ -103,13 +109,24 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
         set({ isCalculating: true, errorMsg: null, meetingArea: null, venues: [] });
 
         const times = TRAVEL_TIME_OPTIONS;
+        let low = 0;
+        let high = times.length - 1;
+        let bestResult: {
+            time: number;
+            area: GeoJSON.Geometry;
+            polys: GeoJSON.Polygon[];
+        } | null = null;
 
         try {
-            for (const t of times) {
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const t = times[mid];
+
+                // Fetch for this time
                 const polys: GeoJSON.Polygon[] = [];
                 let possible = true;
 
-                const results = await Promise.all(locations.map(l => getIsochrone(l.coordinates, t, get().transportMode)));
+                const results = await Promise.all(locations.map(l => getIsochrone(l.coordinates, t, get().transportMode, get().isochroneProvider)));
 
                 if (results.some(r => !r)) {
                     possible = false;
@@ -119,26 +136,39 @@ export const createMeetingSlice: StateCreator<AppState, [], [], MeetingSlice> = 
 
                 if (possible) {
                     const intersectionGeometry = calculateIntersection(polys);
-
                     if (intersectionGeometry) {
-                        setMaxTravelTime(t);
-                        setMeetingArea(intersectionGeometry);
-                        set({ venues: [] }); // clear old
-
-                        const newIsochrones: Record<string, GeoJSON.Polygon> = {};
-                        locations.forEach((loc, index) => {
-                            newIsochrones[loc.id] = polys[index];
-                        });
-                        set({ isochrones: newIsochrones });
-
-                        await get().refreshPOIs();
-                        set({ isCalculating: false });
-                        return; // Done
+                        // Found a valid time, store it and try to find a smaller one
+                        bestResult = {
+                            time: t,
+                            area: intersectionGeometry,
+                            polys: polys
+                        };
+                        high = mid - 1;
+                    } else {
+                        // No intersection, need more time
+                        low = mid + 1;
                     }
+                } else {
+                    // Check failed (likely API error or no isochrone), assume we need more time or retry logic (simplifying to need more time)
+                    low = mid + 1;
                 }
             }
 
-            set({ errorMsg: "Could not find a meeting point within 60 mins." });
+            if (bestResult) {
+                setMaxTravelTime(bestResult.time);
+                setMeetingArea(bestResult.area);
+                set({ venues: [] });
+
+                const newIsochrones: Record<string, GeoJSON.Polygon> = {};
+                locations.forEach((loc, index) => {
+                    newIsochrones[loc.id] = bestResult!.polys[index];
+                });
+                set({ isochrones: newIsochrones });
+
+                await get().refreshPOIs();
+            } else {
+                set({ errorMsg: "Could not find a meeting point within 60 mins." });
+            }
 
         } catch (err) {
             console.error(err);

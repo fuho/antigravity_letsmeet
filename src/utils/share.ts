@@ -6,6 +6,7 @@ export interface ShareData {
     t: number;
     m?: TransportMode; // transport mode (walking, cycling, driving)
     p: string[];
+    pr?: string; // provider (mapbox, ors)
     l: {
         c: [number, number];
         a: string;
@@ -14,13 +15,14 @@ export interface ShareData {
     }[];
 }
 
-export const generateShareString = (locations: Location[], maxTravelTime: number, transportMode: TransportMode, selectedPOITypes: string[]): string => {
+export const generateShareString = (locations: Location[], maxTravelTime: number, transportMode: TransportMode, selectedPOITypes: string[], isochroneProvider?: string): string => {
     // Compact schema
     const data: ShareData = {
         v: 1, // version
         t: maxTravelTime,
         m: transportMode, // transport mode
         p: selectedPOITypes, // POI types
+        pr: isochroneProvider, // provider
         l: locations.map(loc => ({
             c: loc.coordinates,
             a: loc.address,

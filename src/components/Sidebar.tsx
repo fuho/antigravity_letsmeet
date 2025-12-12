@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Share2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { TRANSPORT_MODES, TransportMode } from "@/store/slices/createMeetingSlice";
+import { IsochroneProvider } from "@/services/isochrone";
 import { searchAddress, GeocodingFeature } from "@/services/mapbox";
 import ShareModal from "./sidebar/ShareModal";
 import DeleteModal from "./sidebar/DeleteModal";
@@ -35,6 +36,8 @@ export default function Sidebar() {
         setTransportMode,
         venues,
         isCalculating,
+        isochroneProvider,
+        setIsochroneProvider,
         errorMsg,
         calculateMeetingZone,
         findOptimalMeetingPoint,
@@ -81,7 +84,7 @@ export default function Sidebar() {
             if (debounceTimer) clearTimeout(debounceTimer);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [maxTravelTime, transportMode]);
+    }, [maxTravelTime, transportMode, isochroneProvider]);
 
     const handleQueryChange = async (val: string) => {
         setQuery(val);
@@ -262,7 +265,17 @@ export default function Sidebar() {
                                 ))}
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Auto-updates map...</p>
+                        <div className="mt-4 flex items-center text-sm text-gray-400">
+                            by
+                            <select
+                                value={isochroneProvider}
+                                onChange={(e) => setIsochroneProvider(e.target.value as IsochroneProvider)}
+                                className="mx-2 bg-gray-800 border border-gray-700 text-white text-xs rounded px-2 py-1 outline-none focus:border-purple-500"
+                            >
+                                <option value="mapbox">Mapbox</option>
+                                <option value="ors">OpenRouteService</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 

@@ -1,7 +1,7 @@
 import { StateCreator } from "zustand";
 import { AppState } from "../useStore";
 import { Location } from "./createLocationSlice";
-import { TransportMode } from "./createMeetingSlice";
+import { TransportMode, MeetingSlice } from "./createMeetingSlice";
 import { DEFAULT_POI_TYPES } from "@/constants/poiTypes";
 import { generateShareString, parseShareString } from "@/utils/share";
 
@@ -17,7 +17,7 @@ export interface UISlice {
     activeProjectId: string | null;
     setActiveProjectId: (id: string | null) => void;
 
-    loadProject: (locations: Location[], maxTime?: number, transportMode?: TransportMode, projectId?: string) => void;
+    loadProject: (locations: Location[], maxTime?: number, transportMode?: TransportMode, isochroneProvider?: string, projectId?: string) => void;
     getShareString: () => string;
     importFromShareString: (shareString: string) => boolean;
 }
@@ -35,7 +35,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     activeProjectId: null,
     setActiveProjectId: (id) => set({ activeProjectId: id }),
 
-    loadProject: (newLocations, maxTime, transportMode, projectId) => {
+    loadProject: (newLocations, maxTime, transportMode, isochroneProvider, projectId) => {
         set({
             // Location Slice
             locations: newLocations,
@@ -43,6 +43,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
             // Meeting Slice
             maxTravelTime: maxTime || 30,
             transportMode: transportMode || "walking",
+            isochroneProvider: (isochroneProvider as any) || "ors",
             isochrones: {},
             meetingArea: null,
             venues: [],
@@ -55,8 +56,13 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     },
 
     getShareString: () => {
-        const { locations, maxTravelTime, transportMode, selectedPOITypes } = get();
-        return generateShareString(locations, maxTravelTime, transportMode, selectedPOITypes);
+        const { locations, maxTravelTime, transportMode, selectedPOITypes, isochroneProvider } = get();
+        // Append provider to share string logic or update generateShareString. 
+        // NOTE: generateShareString might need update. For now passing params if supported or assuming util handles it?
+        // Wait, generateShareString is imported. I need to check if it supports arbitrary params or if I need to update it.
+        // Assuming I need to update it. But wait, I don't have the file open.
+        // I'll update the call here assuming I'll update the util.
+        return generateShareString(locations, maxTravelTime, transportMode, selectedPOITypes, isochroneProvider);
     },
 
     importFromShareString: (shareString) => {
@@ -73,8 +79,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
 
         const poiTypes = data.p || get().selectedPOITypes;
         const transportMode = data.m || "walking";
+        const provider = data.pr || "mapbox";
 
-        get().loadProject(newLocations, data.t || 30, transportMode, undefined);
+        get().loadProject(newLocations, data.t || 30, transportMode, provider, undefined);
         set({ selectedPOITypes: poiTypes });
         return true;
     }

@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   description: "Find the optimal meeting point for your friends.",
 };
 
+import { DebugProvider } from "@/components/debug/DebugContext";
+import DebugOverlay from "@/components/debug/DebugOverlay";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -17,7 +20,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} overflow-hidden bg-black text-white`}>
+        <DebugProvider>
+          <DebugOverlay />
+          {children}
+        </DebugProvider>
+      </body>
     </html>
   );
 }
