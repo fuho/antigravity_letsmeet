@@ -31,28 +31,31 @@ This workflow describes the process for releasing a new version of the Meeting P
     npm version patch # or minor, major
     ```
 
-4. **Commit Changes**
+4. **Update Changelog**
+    Update `CHANGELOG.md` with the new version and release notes.
+
+5. **Commit Changes**
 
     ```bash
     git add .
-    git commit -m "Description of changes"
+    git commit -m "chore: release v0.2.0"
     ```
 
-5. **Merge to Main**
+6. **Merge to Main**
 
     ```bash
     git checkout main
     git merge feature/your-feature-name
     ```
 
-6. **Tag release**
+7. **Tag release**
     Tag the commit with the new version number.
 
     ```bash
     git tag v0.2.0
     ```
 
-7. **Push to Production**
+8. **Push to Production**
     Push the code and the tags.
 
     ```bash
