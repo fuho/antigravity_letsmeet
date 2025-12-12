@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
-import ReactMapGL, { NavigationControl } from "react-map-gl";
+import React, { useRef, useCallback, useState, useEffect } from "react";
+import ReactMapGL, { Source, Layer, Marker, Popup, NavigationControl, AttributionControl, MapRef } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useStore } from "@/store/useStore";
 import * as turf from "@turf/turf";
@@ -116,7 +116,17 @@ export default function Map() {
                 mapStyle={mapStyle}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 onClick={handleMapClick}
+                attributionControl={false}
             >
+                <AttributionControl
+                    position="bottom-left"
+                    customAttribution={
+                        mapStyle.includes("openfreemap")
+                            ? '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>'
+                            : undefined
+                    }
+                />
+
                 <NavigationControl position="top-left" />
                 <MapStyleSwitcher />
 
