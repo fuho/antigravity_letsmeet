@@ -73,6 +73,69 @@ describe('useStore Baseline Tests', () => {
 
             expect(useStore.getState().locations).toHaveLength(0);
         });
+
+        it('should clear all locations', () => {
+            // Add multiple locations
+            const loc1: Location = {
+                id: '1',
+                address: '123 Test St',
+                coordinates: [10, 20],
+                color: '#fff',
+            };
+            const loc2: Location = {
+                id: '2',
+                address: '456 Other St',
+                coordinates: [30, 40],
+                color: '#000',
+            };
+
+            act(() => {
+                useStore.getState().addLocation(loc1);
+                useStore.getState().addLocation(loc2);
+            });
+
+            expect(useStore.getState().locations).toHaveLength(2);
+
+            act(() => {
+                useStore.getState().clearAllLocations();
+            });
+
+            expect(useStore.getState().locations).toHaveLength(0);
+        });
+
+        it('should clear isochrones, meetingArea, and venues when clearing all locations', () => {
+            // Setup some state
+            const loc: Location = {
+                id: '1',
+                address: '123 Test St',
+                coordinates: [10, 20],
+                color: '#fff',
+            };
+
+            act(() => {
+                useStore.getState().addLocation(loc);
+                // Manually set some state that should be cleared
+                useStore.setState({
+                    isochrones: { '1': { type: 'Feature', geometry: { type: 'Polygon', coordinates: [] }, properties: {} } as any },
+                    meetingArea: { type: 'Feature', geometry: { type: 'Polygon', coordinates: [] }, properties: {} } as any,
+                    venues: [{ id: 'v1', name: 'Test Venue', coordinates: [10, 20], category: 'cafe' } as any],
+                });
+            });
+
+            expect(useStore.getState().locations).toHaveLength(1);
+            expect(useStore.getState().isochrones).not.toEqual({});
+            expect(useStore.getState().meetingArea).not.toBeNull();
+            expect(useStore.getState().venues).toHaveLength(1);
+
+            act(() => {
+                useStore.getState().clearAllLocations();
+            });
+
+            expect(useStore.getState().locations).toHaveLength(0);
+            expect(useStore.getState().isochrones).toEqual({});
+            expect(useStore.getState().meetingArea).toBeNull();
+            expect(useStore.getState().venues).toHaveLength(0);
+        });
     });
 
     describe('Project & Sharing', () => {
