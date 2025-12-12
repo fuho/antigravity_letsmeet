@@ -32,7 +32,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     hoveredVenueId: null,
     setHoveredVenueId: (id) => set({ hoveredVenueId: id }),
 
-    mapStyle: "mapbox://styles/mapbox/dark-v11",
+    mapStyle: process.env.NEXT_PUBLIC_MAP_PROVIDER === "maplibre"
+        ? "https://tiles.openfreemap.org/styles/positron"
+        : "mapbox://styles/mapbox/dark-v11",
     setMapStyle: (style) => set({ mapStyle: style }),
 
     selectedPOITypes: DEFAULT_POI_TYPES,

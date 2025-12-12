@@ -24,10 +24,12 @@ export default function MapStyleSwitcher() {
     const { mapStyle, setMapStyle } = useStore();
     const [isOpen, setIsOpen] = useState(false);
 
-    const currentStyle = STYLES.find(s => s.id === mapStyle) || STYLES[0];
+    const isMapbox = process.env.NEXT_PUBLIC_MAP_PROVIDER !== "maplibre";
+    const filteredStyles = STYLES.filter(s => isMapbox || !s.isMapbox);
+    const currentStyle = STYLES.find(s => s.id === mapStyle) || filteredStyles[0];
 
     return (
-        <div className="absolute bottom-4 right-[26rem] z-10 flex flex-col items-end">
+        <div className="absolute bottom-10 left-4 z-20 flex flex-col items-start">
             <div className="relative">
                 <button
                     onClick={() => setIsOpen(!isOpen)}
@@ -39,8 +41,8 @@ export default function MapStyleSwitcher() {
                 </button>
 
                 {isOpen && (
-                    <div className="absolute bottom-full right-0 mb-2 w-48 bg-black/90 backdrop-blur-md border border-gray-800 rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        {STYLES.map((style) => (
+                    <div className="absolute bottom-full left-0 mb-2 w-48 bg-black/90 backdrop-blur-md border border-gray-800 rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        {filteredStyles.map((style) => (
                             <button
                                 key={style.id}
                                 onClick={() => {

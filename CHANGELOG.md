@@ -5,6 +5,22 @@ All notable changes to LetsMeet will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-12-12
+
+### Added
+
+- **Dual Map Provider Support**: Seamless support for both Mapbox and MapLibre ecosystems
+  - Switchable via `NEXT_PUBLIC_MAP_PROVIDER` environment variable
+  - **MapLibre Mode**: Uses **OpenFreeMap** tiles (Positron/Bright) and **OpenRouteService** for geocoding & isochrones
+  - **Mapbox Mode**: Classic behavior with Mapbox tiles and APIs
+- **Geocoding Service Factory**: Abstracted service layer to switch between Mapbox and OpenRouteService adapters dynamically
+- **UI Improvements**: Polished map style switcher, aligning popup to left and filtering incompatible styles
+
+### Changed
+
+- **Dependency Update**: Pinned `maplibre-gl` to v4.7.1 to resolve compatibility issues with `react-map-gl` v7
+- **Map Component**: Refactored to dynamically load the appropriate map library (`mapbox-gl` or `maplibre-gl`) at runtime
+
 ## [1.6.1] - 2025-12-12
 
 ### Added
